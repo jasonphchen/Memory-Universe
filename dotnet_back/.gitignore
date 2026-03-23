@@ -59,3 +59,5 @@ secrets.json
 wwwroot/uploads/audios/
 wwwroot/uploads/photos/
 wwwroot/uploads/tmp/
+
+appsettings.json
