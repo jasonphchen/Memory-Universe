@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import type { MouseEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent, TouchEvent } from 'react'
 import type { MemoryContent } from '../types/api'
 
 type MemoryPanelProps = {
@@ -16,6 +16,18 @@ export function MemoryPanel({
   onClose,
 }: MemoryPanelProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
+  const [previewScale, setPreviewScale] = useState(1)
+  const pinchDistanceRef = useRef<number | null>(null)
+
+  const clampScale = (value: number) => Math.min(4, Math.max(1, value))
+
+  const getTouchDistance = (event: TouchEvent<HTMLImageElement>) => {
+    const [touchA, touchB] = [event.touches[0], event.touches[1]]
+    const dx = touchA.clientX - touchB.clientX
+    const dy = touchA.clientY - touchB.clientY
+    return Math.hypot(dx, dy)
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -38,8 +50,48 @@ export function MemoryPanel({
   }
 
   const handleDialogClose = () => {
+    setPreviewPhotoUrl(null)
+    setPreviewScale(1)
+    pinchDistanceRef.current = null
     if (selectedMemory || isLoading || errorMessage) {
       onClose()
+    }
+  }
+
+  const openPhotoPreview = (url: string) => {
+    setPreviewPhotoUrl(url)
+    setPreviewScale(1)
+    pinchDistanceRef.current = null
+  }
+
+  const closePhotoPreview = () => {
+    setPreviewPhotoUrl(null)
+    setPreviewScale(1)
+    pinchDistanceRef.current = null
+  }
+
+  const handlePreviewTouchStart = (event: TouchEvent<HTMLImageElement>) => {
+    if (event.touches.length === 2) {
+      pinchDistanceRef.current = getTouchDistance(event)
+    }
+  }
+
+  const handlePreviewTouchMove = (event: TouchEvent<HTMLImageElement>) => {
+    if (event.touches.length !== 2) return
+    event.preventDefault()
+    const currentDistance = getTouchDistance(event)
+    if (!pinchDistanceRef.current) {
+      pinchDistanceRef.current = currentDistance
+      return
+    }
+    const ratio = currentDistance / pinchDistanceRef.current
+    setPreviewScale((prev) => clampScale(prev * ratio))
+    pinchDistanceRef.current = currentDistance
+  }
+
+  const handlePreviewTouchEnd = (event: TouchEvent<HTMLImageElement>) => {
+    if (event.touches.length < 2) {
+      pinchDistanceRef.current = null
     }
   }
 
@@ -89,7 +141,15 @@ export function MemoryPanel({
                   {/* <h3>图片</h3> */}
                   <div className="memory-photo-list">
                     {selectedMemory.photos.map((photo) => (
-                      <img key={photo.id} src={photo.url} alt={selectedMemory.title} className="memory-photo" />
+                      <button
+                        key={photo.id}
+                        type="button"
+                        className="memory-photo-button"
+                        onClick={() => openPhotoPreview(photo.url)}
+                        aria-label="查看大图"
+                      >
+                        <img src={photo.url} alt={selectedMemory.title} className="memory-photo" />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -111,6 +171,20 @@ export function MemoryPanel({
           ) : null}
         </div>
       )}
+      {previewPhotoUrl ? (
+        <div className="memory-photo-lightbox" onClick={closePhotoPreview}>
+          <img
+            src={previewPhotoUrl}
+            alt="大图预览"
+            className="memory-photo-lightbox-image"
+            style={{ transform: `scale(${previewScale})` }}
+            onClick={(event) => event.stopPropagation()}
+            onTouchStart={handlePreviewTouchStart}
+            onTouchMove={handlePreviewTouchMove}
+            onTouchEnd={handlePreviewTouchEnd}
+          />
+        </div>
+      ) : null}
     </dialog>
   )
 }
