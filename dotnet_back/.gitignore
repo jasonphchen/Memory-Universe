@@ -55,3 +55,7 @@ secrets.json
 *.trx
 *.coverage
 *.coveragexml
+
+wwwroot/uploads/audios/
+wwwroot/uploads/photos/
+wwwroot/uploads/tmp/
