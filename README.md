@@ -1,6 +1,10 @@
 # Memory Universe
 
 ```bash
+http://43.132.123.72
+```
+
+```bash
 python ts-front/src/assets/compress.py
 ```
 

@@ -43,7 +43,15 @@ export function MemoryPanel({
     }
   }
 
-  const memoryTime = selectedMemory ? new Date(selectedMemory.time).toLocaleDateString() : ''
+  const memoryTime = selectedMemory
+    ? (() => {
+        const date = new Date(selectedMemory.time)
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}/${month}/${day}`
+      })()
+    : ''
   const hasPhotos = (selectedMemory?.photos.length ?? 0) > 0
   const hasAudios = (selectedMemory?.audios.length ?? 0) > 0
 
