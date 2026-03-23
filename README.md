@@ -9,6 +9,8 @@ python ts-front/src/assets/compress.py
 ```
 
 ```bash
+kill -9 pid
+
 cd Memory-Universe
 git fetch origin
 git reset --hard origin/main
@@ -25,7 +27,10 @@ export DOTNET_ENVIRONMENT=Release
 nohup dotnet dotnet_back.dll > output.log 2>&1 &
 ```
 
-
 ```bash
 cd /home/ubuntu/Memory-Universe/dotnet_back/bin/Release/net9.0
+```
+
+```bash
+sudo apt install -y ffmpeg
 ```

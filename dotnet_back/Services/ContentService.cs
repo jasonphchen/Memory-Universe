@@ -169,7 +169,8 @@ public class ContentService
 
         try
         {
-            if (photo.Length > _photoCompressionThresholdBytes)
+            var shouldTranscodeToJpeg = photo.Length > _photoCompressionThresholdBytes || sourceExtension is ".heic" or ".heif";
+            if (shouldTranscodeToJpeg)
             {
                 var compressedName = $"{Guid.NewGuid():N}.jpg";
                 var compressedPath = Path.Combine(_photosRoot, compressedName);
@@ -400,7 +401,7 @@ public class ContentService
 
     private static bool IsAllowedPhotoExtension(string extension)
     {
-        return extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp";
+        return extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp" or ".heic" or ".heif";
     }
 
     private static bool IsAllowedAudioExtension(string extension)
