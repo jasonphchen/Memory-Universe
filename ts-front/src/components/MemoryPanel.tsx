@@ -6,6 +6,9 @@ type MemoryPanelProps = {
   selectedMemory: MemoryContent | null
   isLoading?: boolean
   errorMessage?: string
+  canManage?: boolean
+  onEdit?: (memory: MemoryContent) => void
+  onDelete?: (memory: MemoryContent) => Promise<void> | void
   onClose: () => void
 }
 
@@ -13,11 +16,16 @@ export function MemoryPanel({
   selectedMemory,
   isLoading = false,
   errorMessage = '',
+  canManage = false,
+  onEdit,
+  onDelete,
   onClose,
 }: MemoryPanelProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
   const [previewScale, setPreviewScale] = useState(1)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const pinchDistanceRef = useRef<number | null>(null)
 
   const clampScale = (value: number) => Math.min(4, Math.max(1, value))
@@ -53,6 +61,8 @@ export function MemoryPanel({
     setPreviewPhotoUrl(null)
     setPreviewScale(1)
     pinchDistanceRef.current = null
+    setIsDeleteConfirmOpen(false)
+    setIsDeleting(false)
     if (selectedMemory || isLoading || errorMessage) {
       onClose()
     }
@@ -92,6 +102,17 @@ export function MemoryPanel({
   const handlePreviewTouchEnd = (event: TouchEvent<HTMLImageElement>) => {
     if (event.touches.length < 2) {
       pinchDistanceRef.current = null
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedMemory || !onDelete) return
+    try {
+      setIsDeleting(true)
+      await onDelete(selectedMemory)
+      setIsDeleteConfirmOpen(false)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -167,6 +188,27 @@ export function MemoryPanel({
                   </div>
                 </div>
               ) : null}
+
+              {canManage ? (
+                <div className="memory-actions">
+                  <button
+                    type="button"
+                    className="auth-toolbar-button"
+                    onClick={() => selectedMemory && onEdit?.(selectedMemory)}
+                    aria-label="编辑记忆"
+                  >
+                    编辑
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-toolbar-button memory-action-danger"
+                    onClick={() => setIsDeleteConfirmOpen(true)}
+                    aria-label="删除记忆"
+                  >
+                    删除
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : null}
         </div>
@@ -183,6 +225,26 @@ export function MemoryPanel({
             onTouchMove={handlePreviewTouchMove}
             onTouchEnd={handlePreviewTouchEnd}
           />
+        </div>
+      ) : null}
+      {isDeleteConfirmOpen ? (
+        <div className="memory-confirm-overlay" onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}>
+          <div className="memory-confirm-dialog" onClick={(event) => event.stopPropagation()}>
+            <p>确定删除这条记忆吗？</p>
+            <div className="memory-confirm-actions">
+              <button
+                type="button"
+                className="auth-toolbar-button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                disabled={isDeleting}
+              >
+                取消
+              </button>
+              <button type="button" className="auth-submit" onClick={handleDeleteConfirm} disabled={isDeleting}>
+                {isDeleting ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </dialog>

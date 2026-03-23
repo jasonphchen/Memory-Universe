@@ -5,6 +5,7 @@ import { UniverseScene } from './components/UniverseScene'
 import type { MemoryNode } from './components/memory.types'
 import { AuthDialog } from './components/auth/AuthDialog'
 import { AddMemoryDialog } from './components/AddMemoryDialog'
+import { EditMemoryDialog } from './components/EditMemoryDialog'
 import { authService, memoryService, setAccessToken } from './services'
 import type { AuthResponse, MemoryContent } from './types/api'
 import {
@@ -33,6 +34,8 @@ function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [addMemoryDialogOpen, setAddMemoryDialogOpen] = useState(false)
+  const [editMemoryDialogOpen, setEditMemoryDialogOpen] = useState(false)
+  const [memoryToEdit, setMemoryToEdit] = useState<MemoryContent | null>(null)
   const selectedTheme =
     universeThemes.find((theme) => theme.id === themeId) ?? (universeThemes[0] as UniverseTheme)
 
@@ -142,6 +145,26 @@ function App() {
     setMemoryErrorMessage('')
   }
 
+  const handleMemoryCreated = async (memory: MemoryContent) => {
+    await loadMemoryList()
+    await handleSelectMemory(memory.id)
+  }
+
+  const handleEditSaved = async (memoryId: string) => {
+    await loadMemoryList()
+    await handleSelectMemory(memoryId)
+  }
+
+  const handleDeleteMemory = async (memory: MemoryContent) => {
+    try {
+      await memoryService.delete(memory.id)
+      await loadMemoryList()
+      handleCloseMemoryPanel()
+    } catch {
+      setMemoryErrorMessage('删除失败，请稍后重试。')
+    }
+  }
+
   // const handleLogout = () => {
   //   setSelectedMemory(null)
   //   setAccessToken(null)
@@ -196,6 +219,12 @@ function App() {
         selectedMemory={selectedMemory}
         isLoading={isMemoryLoading}
         errorMessage={memoryErrorMessage}
+        canManage={!!authUser}
+        onEdit={(memory) => {
+          setMemoryToEdit(memory)
+          setEditMemoryDialogOpen(true)
+        }}
+        onDelete={handleDeleteMemory}
         onClose={handleCloseMemoryPanel}
       />
       <AuthDialog
@@ -206,7 +235,16 @@ function App() {
       <AddMemoryDialog
         isOpen={addMemoryDialogOpen}
         onClose={() => setAddMemoryDialogOpen(false)}
-        onCreated={loadMemoryList}
+        onCreated={handleMemoryCreated}
+      />
+      <EditMemoryDialog
+        isOpen={editMemoryDialogOpen}
+        memory={memoryToEdit}
+        onClose={() => {
+          setEditMemoryDialogOpen(false)
+          setMemoryToEdit(null)
+        }}
+        onSaved={handleEditSaved}
       />
     </div>
   )

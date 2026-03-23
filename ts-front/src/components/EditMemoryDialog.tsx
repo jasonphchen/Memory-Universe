@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { memoryService } from '../services'
-import type { ApiError, MemoryContent } from '../types/api'
+import type { ApiError, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
 
-type AddMemoryDialogProps = {
+type EditMemoryDialogProps = {
+  memory: MemoryContent | null
   isOpen: boolean
   onClose: () => void
-  onCreated?: (memory: MemoryContent) => void
+  onSaved?: (memoryId: string) => void
 }
 
 type FormState = {
@@ -14,13 +15,6 @@ type FormState = {
   time: string
   location: string
   content: string
-}
-
-const initialFormState: FormState = {
-  title: '',
-  time: '',
-  location: '',
-  content: '',
 }
 
 function getFileKey(file: File): string {
@@ -44,14 +38,46 @@ function getErrorMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'message' in error) {
     return String((error as ApiError).message)
   }
-  return '保存失败，请稍后重试。'
+  return '更新失败，请稍后重试。'
 }
 
-export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogProps) {
+function toDateInputValue(value: string): string {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getFileNameFromUrl(url: string): string {
+  if (!url) return '未命名文件'
+  const cleaned = url.split('?')[0]
+  const fileName = cleaned.split('/').pop()
+  if (!fileName) return '未命名文件'
+  try {
+    return decodeURIComponent(fileName)
+  } catch {
+    return fileName
+  }
+}
+
+export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemoryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
-  const [formState, setFormState] = useState<FormState>(initialFormState)
+  const [formState, setFormState] = useState<FormState>({
+    title: '',
+    time: '',
+    location: '',
+    content: '',
+  })
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [audioFiles, setAudioFiles] = useState<File[]>([])
+  const [existingPhotos, setExistingPhotos] = useState<MemoryPhoto[]>([])
+  const [existingAudios, setExistingAudios] = useState<MemoryAudio[]>([])
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([])
+  const [removedAudioIds, setRemovedAudioIds] = useState<string[]>([])
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -69,20 +95,32 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!memory) return
+    setFormState({
+      title: memory.title,
+      time: toDateInputValue(memory.time),
+      location: memory.location,
+      content: memory.content,
+    })
+    setPhotoFiles([])
+    setAudioFiles([])
+    setExistingPhotos(memory.photos)
+    setExistingAudios(memory.audios)
+    setRemovedPhotoIds([])
+    setRemovedAudioIds([])
+    setError('')
+  }, [memory])
+
   const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
     if (event.target === event.currentTarget && !isSubmitting) {
       onClose()
     }
   }
 
-  const handleClose = () => {
-    if (isOpen) {
-      onClose()
-    }
-  }
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!memory) return
 
     if (!formState.title || !formState.time || !formState.location || !formState.content) {
       setError('请填写标题、时间、地点和内容。')
@@ -93,24 +131,30 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsSubmitting(true)
       setError('')
 
-      const created = await memoryService.create({
+      await memoryService.update(memory.id, {
         title: formState.title.trim(),
         content: formState.content.trim(),
         time: formState.time,
         location: formState.location.trim(),
       })
 
-      if (photoFiles.length > 0) {
-        await Promise.all(photoFiles.map((file) => memoryService.uploadPhoto(created.id, file)))
-      }
-      if (audioFiles.length > 0) {
-        await Promise.all(audioFiles.map((file) => memoryService.uploadAudio(created.id, file)))
+      if (removedPhotoIds.length > 0) {
+        await Promise.all(removedPhotoIds.map((photoId) => memoryService.deletePhoto(memory.id, photoId)))
       }
 
-      setFormState(initialFormState)
-      setPhotoFiles([])
-      setAudioFiles([])
-      onCreated?.(created)
+      if (removedAudioIds.length > 0) {
+        await Promise.all(removedAudioIds.map((audioId) => memoryService.deleteAudio(memory.id, audioId)))
+      }
+
+      if (photoFiles.length > 0) {
+        await Promise.all(photoFiles.map((file) => memoryService.uploadPhoto(memory.id, file)))
+      }
+
+      if (audioFiles.length > 0) {
+        await Promise.all(audioFiles.map((file) => memoryService.uploadAudio(memory.id, file)))
+      }
+
+      onSaved?.(memory.id)
       onClose()
     } catch (submitError) {
       setError(getErrorMessage(submitError))
@@ -124,11 +168,10 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       ref={dialogRef}
       className="create-memory-dialog"
       onClick={handleBackdropClick}
-      onClose={handleClose}
+      onClose={onClose}
     >
       <div className="create-memory-dialog-content">
-        <h2>新增记忆</h2>
-        <p className="auth-subtitle">填写基础信息后可选上传多张图片和多段音频。</p>
+        <h2>编辑记忆</h2>
         {error ? <p className="auth-error">{error}</p> : null}
 
         <form className="create-memory-form" onSubmit={handleSubmit}>
@@ -184,15 +227,36 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
             图片
             <div className="file-picker-row">
               <label
-                htmlFor="photo-file-input"
+                htmlFor="edit-photo-file-input"
                 className={`file-picker-trigger ${isSubmitting ? 'disabled' : ''}`}
               >
                 选择图片
               </label>
               <span className="file-picker-name">
-                {photoFiles.length > 0 ? `已选择 ${photoFiles.length} 张` : ''}
+                {photoFiles.length > 0 ? `待上传 ${photoFiles.length} 张` : ''}
               </span>
             </div>
+            {existingPhotos.length > 0 ? (
+              <div className="selected-file-list">
+                {existingPhotos.map((photo) => (
+                  <div key={photo.id} className="selected-file-item">
+                    <span className="selected-file-item-name">{getFileNameFromUrl(photo.url)}</span>
+                    <button
+                      type="button"
+                      className="selected-file-remove"
+                      onClick={() => {
+                        setExistingPhotos((prev) => prev.filter((x) => x.id !== photo.id))
+                        setRemovedPhotoIds((prev) => (prev.includes(photo.id) ? prev : [...prev, photo.id]))
+                      }}
+                      disabled={isSubmitting}
+                      aria-label={`删除图片 ${getFileNameFromUrl(photo.url)}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {photoFiles.length > 0 ? (
               <div className="selected-file-list">
                 {photoFiles.map((file) => (
@@ -214,7 +278,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               </div>
             ) : null}
             <input
-              id="photo-file-input"
+              id="edit-photo-file-input"
               className="file-input-hidden"
               type="file"
               accept="image/*"
@@ -234,15 +298,36 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
             音频
             <div className="file-picker-row">
               <label
-                htmlFor="audio-file-input"
+                htmlFor="edit-audio-file-input"
                 className={`file-picker-trigger ${isSubmitting ? 'disabled' : ''}`}
               >
                 选择音频
               </label>
               <span className="file-picker-name">
-                {audioFiles.length > 0 ? `已选择 ${audioFiles.length} 段` : ''}
+                {audioFiles.length > 0 ? `待上传 ${audioFiles.length} 段` : ''}
               </span>
             </div>
+            {existingAudios.length > 0 ? (
+              <div className="selected-file-list">
+                {existingAudios.map((audio) => (
+                  <div key={audio.id} className="selected-file-item">
+                    <span className="selected-file-item-name">{getFileNameFromUrl(audio.url)}</span>
+                    <button
+                      type="button"
+                      className="selected-file-remove"
+                      onClick={() => {
+                        setExistingAudios((prev) => prev.filter((x) => x.id !== audio.id))
+                        setRemovedAudioIds((prev) => (prev.includes(audio.id) ? prev : [...prev, audio.id]))
+                      }}
+                      disabled={isSubmitting}
+                      aria-label={`删除音频 ${getFileNameFromUrl(audio.url)}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {audioFiles.length > 0 ? (
               <div className="selected-file-list">
                 {audioFiles.map((file) => (
@@ -264,7 +349,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               </div>
             ) : null}
             <input
-              id="audio-file-input"
+              id="edit-audio-file-input"
               className="file-input-hidden"
               type="file"
               accept="audio/*"
@@ -285,7 +370,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               取消
             </button>
             <button type="submit" className="auth-submit" disabled={isSubmitting}>
-              {isSubmitting ? '保存中...' : '保存'}
+              {isSubmitting ? '保存中...' : '保存修改'}
             </button>
           </div>
         </form>
