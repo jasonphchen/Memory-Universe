@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Http;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Diagnostics;
+using ImageMagick;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace Dotnet_back.Services.ContentService;
 
@@ -174,10 +178,12 @@ public class ContentService
             {
                 var compressedName = $"{Guid.NewGuid():N}.jpg";
                 var compressedPath = Path.Combine(_photosRoot, compressedName);
-                var ffmpegArgs =
-                    $"-y -i \"{tempInputPath}\" -vf \"scale='if(gt(iw,{_photoMaxWidth}),{_photoMaxWidth},iw)':-2\" -q:v {ToFfmpegQScale(_photoJpegQuality)} \"{compressedPath}\"";
-
-                var (success, error) = await RunProcessAsync("ffmpeg", ffmpegArgs, cancellationToken);
+                var (success, error) = await CompressPhotoToJpegAsync(
+                    tempInputPath,
+                    compressedPath,
+                    sourceExtension is ".heic" or ".heif",
+                    cancellationToken
+                );
                 if (!success)
                 {
                     return (null, $"Photo compression failed: {error}");
@@ -198,6 +204,58 @@ public class ContentService
             {
                 File.Delete(tempInputPath);
             }
+        }
+    }
+
+    private async Task<(bool Success, string? Error)> CompressPhotoToJpegAsync(
+        string inputPath,
+        string outputPath,
+        bool isHeicOrHeif,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (isHeicOrHeif)
+            {
+                using var magickImage = new MagickImage(inputPath);
+                magickImage.AutoOrient();
+                var maxWidth = (uint)Math.Max(1, _photoMaxWidth);
+                if (magickImage.Width > maxWidth)
+                {
+                    magickImage.Resize(maxWidth, 0);
+                }
+
+                magickImage.Format = MagickFormat.Jpeg;
+                magickImage.Quality = (uint)Math.Clamp(_photoJpegQuality, 1, 100);
+                magickImage.Write(outputPath);
+                return (true, null);
+            }
+
+            await using var inputStream = File.OpenRead(inputPath);
+            using var image = await Image.LoadAsync(inputStream, cancellationToken);
+            image.Mutate(x =>
+            {
+                x.AutoOrient();
+                if (image.Width > _photoMaxWidth)
+                {
+                    x.Resize(new ResizeOptions
+                    {
+                        Size = new Size(_photoMaxWidth, 0),
+                        Mode = ResizeMode.Max
+                    });
+                }
+            });
+
+            var encoder = new JpegEncoder
+            {
+                Quality = Math.Clamp(_photoJpegQuality, 1, 100)
+            };
+            await image.SaveAsJpegAsync(outputPath, encoder, cancellationToken);
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
         }
     }
 
@@ -380,12 +438,6 @@ public class ContentService
         {
             return (false, ex.Message);
         }
-    }
-
-    private static int ToFfmpegQScale(int jpegQuality)
-    {
-        var clamped = Math.Clamp(jpegQuality, 1, 100);
-        return 31 - (int)Math.Round((clamped / 100.0) * 30);
     }
 
     private static string NormalizeExtension(string extension, string fallback)
