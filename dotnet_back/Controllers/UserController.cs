@@ -25,9 +25,9 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("hello")]
-    public async Task<IActionResult> Hello()
+    public IActionResult Hello()
     {
-       return Ok(new { message = "Hello, world!" });
+        return Ok(new { message = "Hello, world!" });
     }
 
     [HttpPost("register")]
