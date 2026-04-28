@@ -18,8 +18,8 @@ public class ChatbotService
     private const string Model = "gpt-5.4-mini";
     private const string DefaultSystemPrompt =
         """
-        You are a helpful assistant for the Memory Universe application.
-        Keep answers concise, practical, and friendly.
+        你是 Memory Universe 应用的智能助手。
+        请用简洁、实用、友好的方式回答用户问题。
         """;
     private const string RefinedTextPrompt =
         """
@@ -37,7 +37,7 @@ public class ChatbotService
         var apiKey = configuration["OpenAI:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            throw new InvalidOperationException("OpenAI API key is not configured.");
+            throw new InvalidOperationException("尚未配置 OpenAI API 密钥。");
         }
 
         _kernel = Kernel.CreateBuilder()
@@ -66,7 +66,7 @@ public class ChatbotService
         );
 
         var reply = string.IsNullOrWhiteSpace(result.Content)
-            ? "Failed to generate a response."
+            ? "生成回复失败。"
             : result.Content.Trim();
 
         return new ChatbotResponse(reply, Model);

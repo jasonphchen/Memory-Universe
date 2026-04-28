@@ -453,7 +453,7 @@ public class ContentService
 
     private static bool IsAllowedPhotoExtension(string extension)
     {
-        return extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp" or ".heic" or ".heif";
+        return extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".heic" or ".heif";
     }
 
     private static bool IsAllowedAudioExtension(string extension)
