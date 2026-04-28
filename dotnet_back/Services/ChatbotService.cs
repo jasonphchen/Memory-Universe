@@ -15,7 +15,7 @@ public record ChatbotResponse(string Reply, string Model);
 
 public class ChatbotService
 {
-    private const string DefaultModel = "gpt-4.1-mini";
+    private const string Model = "gpt-5.4-mini";
     private const string DefaultSystemPrompt =
         """
         You are a helpful assistant for the Memory Universe application.
@@ -24,7 +24,6 @@ public class ChatbotService
 
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
-    private readonly string _modelId;
 
     public ChatbotService(IConfiguration configuration)
     {
@@ -34,9 +33,8 @@ public class ChatbotService
             throw new InvalidOperationException("OpenAI API key is not configured.");
         }
 
-        _modelId = configuration["OpenAI:ChatModel"] ?? DefaultModel;
         _kernel = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion(_modelId, apiKey)
+            .AddOpenAIChatCompletion(Model, apiKey)
             .Build();
 
         _chatCompletionService = _kernel.Services.GetRequiredService<IChatCompletionService>();
@@ -61,9 +59,9 @@ public class ChatbotService
         );
 
         var reply = string.IsNullOrWhiteSpace(result.Content)
-            ? "I could not generate a response."
+            ? "Failed to generate a response."
             : result.Content.Trim();
 
-        return new ChatbotResponse(reply, _modelId);
+        return new ChatbotResponse(reply, Model);
     }
 }
