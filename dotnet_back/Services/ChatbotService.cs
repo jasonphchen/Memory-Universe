@@ -21,6 +21,13 @@ public class ChatbotService
         You are a helpful assistant for the Memory Universe application.
         Keep answers concise, practical, and friendly.
         """;
+    private const string RefinedTextPrompt =
+        """
+        请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。只返回文本不要添加其他。
+        """;
+    // private const string RefinedPhotoPrompt =
+    //     """
+    //     """;
 
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;

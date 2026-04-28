@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Dotnet_back.Chatbot;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ChatbotController : ControllerBase
 {
     private readonly ChatbotService _chatbotService;

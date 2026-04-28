@@ -34,11 +34,11 @@ function appendUniqueFiles(previousFiles: File[], incomingFiles: File[]): File[]
   return next
 }
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (typeof error === 'object' && error !== null && 'message' in error) {
     return String((error as ApiError).message)
   }
-  return '更新失败，请稍后重试。'
+  return fallbackMessage
 }
 
 function toDateInputValue(value: string): string {
@@ -80,6 +80,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const [removedAudioIds, setRemovedAudioIds] = useState<string[]>([])
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefining, setIsRefining] = useState(false)
+  const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
+  const isBusy = isSubmitting || isRefining
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -110,10 +113,18 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     setRemovedPhotoIds([])
     setRemovedAudioIds([])
     setError('')
+    setIsRefining(false)
+    setContentBeforeRefine(null)
   }, [memory])
 
   const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
-    if (event.target === event.currentTarget && !isSubmitting) {
+    if (event.target === event.currentTarget && !isBusy) {
+      onClose()
+    }
+  }
+
+  const handleClose = () => {
+    if (!isBusy) {
       onClose()
     }
   }
@@ -157,10 +168,41 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       onSaved?.(memory.id)
       onClose()
     } catch (submitError) {
-      setError(getErrorMessage(submitError))
+      setError(getErrorMessage(submitError, '更新失败，请稍后重试。'))
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleRefineContent = async () => {
+    if (!formState.content.trim()) {
+      setError('请先输入要润色的内容。')
+      return
+    }
+
+    const originalContent = formState.content
+
+    try {
+      setIsRefining(true)
+      setError('')
+      const response = await memoryService.refineText(originalContent)
+      setContentBeforeRefine(originalContent)
+      setFormState((prev) => ({ ...prev, content: response.reply }))
+    } catch (refineError) {
+      setError(getErrorMessage(refineError, '润色失败，请稍后重试。'))
+    } finally {
+      setIsRefining(false)
+    }
+  }
+
+  const handleRevertContent = () => {
+    if (contentBeforeRefine === null) {
+      return
+    }
+
+    setFormState((prev) => ({ ...prev, content: contentBeforeRefine }))
+    setContentBeforeRefine(null)
+    setError('')
   }
 
   return (
@@ -168,7 +210,12 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       ref={dialogRef}
       className="create-memory-dialog"
       onClick={handleBackdropClick}
-      onClose={onClose}
+      onCancel={(event) => {
+        if (isBusy) {
+          event.preventDefault()
+        }
+      }}
+      onClose={handleClose}
     >
       <div className="create-memory-dialog-content">
         <h2>编辑记忆</h2>
@@ -182,7 +229,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               type="text"
               value={formState.title}
               onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-              disabled={isSubmitting}
+              disabled={isBusy}
               required
             />
           </label>
@@ -194,7 +241,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               type="date"
               value={formState.time}
               onChange={(event) => setFormState((prev) => ({ ...prev, time: event.target.value }))}
-              disabled={isSubmitting}
+              disabled={isBusy}
               required
             />
           </label>
@@ -206,7 +253,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               type="text"
               value={formState.location}
               onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
-              disabled={isSubmitting}
+              disabled={isBusy}
               required
             />
           </label>
@@ -217,10 +264,37 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               className="auth-input create-memory-textarea"
               value={formState.content}
               onChange={(event) => setFormState((prev) => ({ ...prev, content: event.target.value }))}
-              disabled={isSubmitting}
+              disabled={isBusy}
               rows={4}
               required
             />
+            <div className="text-assistant-row">
+              <button
+                type="button"
+                className="text-assistant-icon-button"
+                onClick={handleRevertContent}
+                disabled={isBusy || contentBeforeRefine === null}
+                aria-label="恢复润色前文本"
+                title="恢复润色前文本"
+              >
+                ↺
+              </button>
+              <button
+                type="button"
+                className="text-assistant-button"
+                onClick={handleRefineContent}
+                disabled={isBusy || !formState.content.trim()}
+              >
+                {isRefining ? (
+                  <>
+                    <span className="text-assistant-spinner" aria-hidden="true" />
+                    润色中...
+                  </>
+                ) : (
+                  '文字助手'
+                )}
+              </button>
+            </div>
           </label>
 
           <label className="auth-label">
@@ -228,7 +302,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
             <div className="file-picker-row">
               <label
                 htmlFor="edit-photo-file-input"
-                className={`file-picker-trigger ${isSubmitting ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
               >
                 选择图片
               </label>
@@ -248,7 +322,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setExistingPhotos((prev) => prev.filter((x) => x.id !== photo.id))
                         setRemovedPhotoIds((prev) => (prev.includes(photo.id) ? prev : [...prev, photo.id]))
                       }}
-                      disabled={isSubmitting}
+                      disabled={isBusy}
                       aria-label={`删除图片 ${getFileNameFromUrl(photo.url)}`}
                     >
                       ×
@@ -268,7 +342,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                       onClick={() =>
                         setPhotoFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
-                      disabled={isSubmitting}
+                      disabled={isBusy}
                       aria-label={`删除图片 ${file.name}`}
                     >
                       ×
@@ -290,7 +364,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 }
                 event.currentTarget.value = ''
               }}
-              disabled={isSubmitting}
+              disabled={isBusy}
             />
           </label>
 
@@ -299,7 +373,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
             <div className="file-picker-row">
               <label
                 htmlFor="edit-audio-file-input"
-                className={`file-picker-trigger ${isSubmitting ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
               >
                 选择音频
               </label>
@@ -319,7 +393,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setExistingAudios((prev) => prev.filter((x) => x.id !== audio.id))
                         setRemovedAudioIds((prev) => (prev.includes(audio.id) ? prev : [...prev, audio.id]))
                       }}
-                      disabled={isSubmitting}
+                      disabled={isBusy}
                       aria-label={`删除音频 ${getFileNameFromUrl(audio.url)}`}
                     >
                       ×
@@ -339,7 +413,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                       onClick={() =>
                         setAudioFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
-                      disabled={isSubmitting}
+                      disabled={isBusy}
                       aria-label={`删除音频 ${file.name}`}
                     >
                       ×
@@ -361,15 +435,15 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 }
                 event.currentTarget.value = ''
               }}
-              disabled={isSubmitting}
+              disabled={isBusy}
             />
           </label>
 
           <div className="create-memory-actions">
-            <button type="button" className="auth-toolbar-button" onClick={onClose} disabled={isSubmitting}>
+            <button type="button" className="auth-toolbar-button" onClick={onClose} disabled={isBusy}>
               取消
             </button>
-            <button type="submit" className="auth-submit" disabled={isSubmitting}>
+            <button type="submit" className="auth-submit" disabled={isBusy}>
               {isSubmitting ? '保存中...' : '保存修改'}
             </button>
           </div>

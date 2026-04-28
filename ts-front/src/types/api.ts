@@ -11,6 +11,16 @@ export type AuthResponse = {
   refreshToken: string
 }
 
+export type ChatbotRequest = {
+  message: string
+  systemPrompt?: string
+}
+
+export type ChatbotResponse = {
+  reply: string
+  model: string
+}
+
 export type MemoryPhoto = {
   id: string
   url: string

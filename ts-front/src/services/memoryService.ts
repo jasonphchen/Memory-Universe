@@ -1,5 +1,7 @@
 import { request } from './apiClient'
 import type {
+  ChatbotRequest,
+  ChatbotResponse,
   CreateOrUpdateMemoryPayload,
   MemoryAudio,
   MemoryContent,
@@ -11,6 +13,8 @@ const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   (import.meta.env.PROD ? 'http://43.132.123.72' : 'http://localhost:5000')
 
+const REFINED_TEXT_PROMPT = '请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。不要添加任何说明或其他内容。'
+
 function toAbsoluteMediaUrl(path: string): string {
   if (!path) return path
   if (/^https?:\/\//i.test(path)) return path
@@ -19,6 +23,17 @@ function toAbsoluteMediaUrl(path: string): string {
 }
 
 export const memoryService = {
+  chat(payload: ChatbotRequest) {
+    return request<ChatbotResponse>('/api/chatbot/chat', 'POST', payload, { auth: true })
+  },
+  refineText(message: string) {
+    return request<ChatbotResponse>(
+      '/api/chatbot/chat',
+      'POST',
+      { message, systemPrompt: REFINED_TEXT_PROMPT },
+      { auth: true },
+    )
+  },
   create(payload: CreateOrUpdateMemoryPayload) {
     return request<MemoryContent>('/api/content', 'POST', payload, { auth: true })
   },
