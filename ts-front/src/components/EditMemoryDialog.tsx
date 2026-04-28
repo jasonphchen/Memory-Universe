@@ -17,6 +17,8 @@ type FormState = {
   content: string
 }
 
+const MAX_PHOTO_COUNT = 3
+
 function getFileKey(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`
 }
@@ -83,6 +85,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const [isRefining, setIsRefining] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
   const isBusy = isSubmitting || isRefining
+  const totalPhotoCount = existingPhotos.length + photoFiles.length
+  const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -205,6 +209,23 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     setError('')
   }
 
+  const handlePhotoChange = (files: FileList | null) => {
+    const selected = Array.from(files ?? [])
+    if (selected.length === 0) {
+      return
+    }
+
+    const mergedFiles = appendUniqueFiles(photoFiles, selected)
+    const remainingSlots = Math.max(0, MAX_PHOTO_COUNT - existingPhotos.length)
+    if (mergedFiles.length > remainingSlots) {
+      setError(`每次最多保留 ${MAX_PHOTO_COUNT} 张图片。`)
+    } else {
+      setError('')
+    }
+
+    setPhotoFiles(mergedFiles.slice(0, remainingSlots))
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -291,7 +312,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                     润色中...
                   </>
                 ) : (
-                  '文字助手'
+                  '文字AI助手'
                 )}
               </button>
             </div>
@@ -302,12 +323,12 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
             <div className="file-picker-row">
               <label
                 htmlFor="edit-photo-file-input"
-                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
               >
                 选择图片
               </label>
               <span className="file-picker-name">
-                {photoFiles.length > 0 ? `待上传 ${photoFiles.length} 张` : ''}
+                {totalPhotoCount > 0 ? `当前 ${totalPhotoCount}/${MAX_PHOTO_COUNT} 张` : `最多 ${MAX_PHOTO_COUNT} 张`}
               </span>
             </div>
             {existingPhotos.length > 0 ? (
@@ -358,13 +379,10 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               accept="image/*"
               multiple
               onChange={(event) => {
-                const selected = Array.from(event.target.files ?? [])
-                if (selected.length > 0) {
-                  setPhotoFiles((prev) => appendUniqueFiles(prev, selected))
-                }
+                handlePhotoChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy}
+              disabled={isBusy || isPhotoLimitReached}
             />
           </label>
 

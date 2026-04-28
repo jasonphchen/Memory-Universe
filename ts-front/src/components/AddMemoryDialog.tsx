@@ -16,6 +16,8 @@ type FormState = {
   content: string
 }
 
+const MAX_PHOTO_COUNT = 3
+
 const initialFormState: FormState = {
   title: '',
   time: '',
@@ -57,6 +59,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [isRefining, setIsRefining] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
   const isBusy = isSubmitting || isRefining
+  const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -152,6 +155,22 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     setFormState((prev) => ({ ...prev, content: contentBeforeRefine }))
     setContentBeforeRefine(null)
     setError('')
+  }
+
+  const handlePhotoChange = (files: FileList | null) => {
+    const selected = Array.from(files ?? [])
+    if (selected.length === 0) {
+      return
+    }
+
+    const mergedFiles = appendUniqueFiles(photoFiles, selected)
+    if (mergedFiles.length > MAX_PHOTO_COUNT) {
+      setError(`每次最多上传 ${MAX_PHOTO_COUNT} 张图片。`)
+    } else {
+      setError('')
+    }
+
+    setPhotoFiles(mergedFiles.slice(0, MAX_PHOTO_COUNT))
   }
 
   return (
@@ -252,12 +271,12 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
             <div className="file-picker-row">
               <label
                 htmlFor="photo-file-input"
-                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
               >
                 选择图片
               </label>
               <span className="file-picker-name">
-                {photoFiles.length > 0 ? `已选择 ${photoFiles.length} 张` : ''}
+                {photoFiles.length > 0 ? `已选择 ${photoFiles.length}/${MAX_PHOTO_COUNT} 张` : `最多 ${MAX_PHOTO_COUNT} 张`}
               </span>
             </div>
             {photoFiles.length > 0 ? (
@@ -287,13 +306,10 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               accept="image/*"
               multiple
               onChange={(event) => {
-                const selected = Array.from(event.target.files ?? [])
-                if (selected.length > 0) {
-                  setPhotoFiles((prev) => appendUniqueFiles(prev, selected))
-                }
+                handlePhotoChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy}
+              disabled={isBusy || isPhotoLimitReached}
             />
           </label>
 

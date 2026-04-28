@@ -1,6 +1,10 @@
 # Memory Universe
 
 ```bash
+Three Images per dialog is maximum
+```
+
+```bash
 http://43.132.123.72
 ```
 
