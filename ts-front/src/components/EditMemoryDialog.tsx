@@ -18,6 +18,7 @@ type FormState = {
 }
 
 const MAX_PHOTO_COUNT = 3
+const MAX_AUDIO_COUNT = 3
 
 function getFileKey(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`
@@ -138,7 +139,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
   const isBusy = isSubmitting || isRefining || isRefiningWithImages
   const totalPhotoCount = existingPhotos.length + photoFiles.length
+  const totalAudioCount = existingAudios.length + audioFiles.length
   const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
+  const isAudioLimitReached = totalAudioCount >= MAX_AUDIO_COUNT
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -307,6 +310,23 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     }
 
     setPhotoFiles(mergedFiles.slice(0, remainingSlots))
+  }
+
+  const handleAudioChange = (files: FileList | null) => {
+    const selected = Array.from(files ?? [])
+    if (selected.length === 0) {
+      return
+    }
+
+    const mergedFiles = appendUniqueFiles(audioFiles, selected)
+    const remainingSlots = Math.max(0, MAX_AUDIO_COUNT - existingAudios.length)
+    if (mergedFiles.length > remainingSlots) {
+      setError(`每次最多保留 ${MAX_AUDIO_COUNT} 段音频。`)
+    } else {
+      setError('')
+    }
+
+    setAudioFiles(mergedFiles.slice(0, remainingSlots))
   }
 
   return (
@@ -496,12 +516,12 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
             <div className="file-picker-row">
               <label
                 htmlFor="edit-audio-file-input"
-                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy || isAudioLimitReached ? 'disabled' : ''}`}
               >
                 选择音频
               </label>
               <span className="file-picker-name">
-                {audioFiles.length > 0 ? `待上传 ${audioFiles.length} 段` : ''}
+                {totalAudioCount > 0 ? `当前 ${totalAudioCount}/${MAX_AUDIO_COUNT} 段` : `最多 ${MAX_AUDIO_COUNT} 段`}
               </span>
             </div>
             {existingAudios.length > 0 ? (
@@ -552,13 +572,10 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               accept="audio/*"
               multiple
               onChange={(event) => {
-                const selected = Array.from(event.target.files ?? [])
-                if (selected.length > 0) {
-                  setAudioFiles((prev) => appendUniqueFiles(prev, selected))
-                }
+                handleAudioChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy}
+              disabled={isBusy || isAudioLimitReached}
             />
           </label>
 

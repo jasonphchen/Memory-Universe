@@ -17,6 +17,7 @@ type FormState = {
 }
 
 const MAX_PHOTO_COUNT = 3
+const MAX_AUDIO_COUNT = 3
 
 const initialFormState: FormState = {
   title: '',
@@ -94,6 +95,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
   const isBusy = isSubmitting || isRefining || isRefiningWithImages
   const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
+  const isAudioLimitReached = audioFiles.length >= MAX_AUDIO_COUNT
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -232,6 +234,22 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     }
 
     setPhotoFiles(mergedFiles.slice(0, MAX_PHOTO_COUNT))
+  }
+
+  const handleAudioChange = (files: FileList | null) => {
+    const selected = Array.from(files ?? [])
+    if (selected.length === 0) {
+      return
+    }
+
+    const mergedFiles = appendUniqueFiles(audioFiles, selected)
+    if (mergedFiles.length > MAX_AUDIO_COUNT) {
+      setError(`每次最多上传 ${MAX_AUDIO_COUNT} 段音频。`)
+    } else {
+      setError('')
+    }
+
+    setAudioFiles(mergedFiles.slice(0, MAX_AUDIO_COUNT))
   }
 
   return (
@@ -401,12 +419,12 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
             <div className="file-picker-row">
               <label
                 htmlFor="audio-file-input"
-                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy || isAudioLimitReached ? 'disabled' : ''}`}
               >
                 选择音频
               </label>
               <span className="file-picker-name">
-                {audioFiles.length > 0 ? `已选择 ${audioFiles.length} 段` : ''}
+                {audioFiles.length > 0 ? `已选择 ${audioFiles.length}/${MAX_AUDIO_COUNT} 段` : `最多 ${MAX_AUDIO_COUNT} 段`}
               </span>
             </div>
             {audioFiles.length > 0 ? (
@@ -436,13 +454,10 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               accept="audio/*"
               multiple
               onChange={(event) => {
-                const selected = Array.from(event.target.files ?? [])
-                if (selected.length > 0) {
-                  setAudioFiles((prev) => appendUniqueFiles(prev, selected))
-                }
+                handleAudioChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy}
+              disabled={isBusy || isAudioLimitReached}
             />
           </label>
 
