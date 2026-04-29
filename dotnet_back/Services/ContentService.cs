@@ -458,7 +458,7 @@ public class ContentService
 
     private static bool IsAllowedAudioExtension(string extension)
     {
-        return extension is ".mp3" or ".wav" or ".m4a" or ".aac" or ".ogg" or ".webm" or ".amr" or ".silk";
+        return extension is ".mp3" or ".wav" or ".m4a" or ".ogg" or ".webm";
     }
 
     private async Task<(bool Success, string Error)> TranscodeAudioToOpusAsync(
