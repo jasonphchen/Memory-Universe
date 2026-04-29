@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { memoryService } from '../services'
-import type { ApiError, MemoryContent } from '../types/api'
+import type { ApiError, ChatbotImageInput, MemoryContent } from '../types/api'
 
 type AddMemoryDialogProps = {
   isOpen: boolean
@@ -49,6 +49,39 @@ function getErrorMessage(error: unknown, fallbackMessage: string): string {
   return fallbackMessage
 }
 
+function getImageTypeFromFile(file: File): string {
+  if (file.type.startsWith('image/')) {
+    return file.type
+  }
+
+  return file.name.split('.').pop() ?? ''
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
+  return {
+    base64: await fileToDataUrl(file),
+    imageType: getImageTypeFromFile(file),
+  }
+}
+
+function buildMemoryAssistantMessage(formState: FormState): string {
+  return [
+    `标题：${formState.title.trim()}`,
+    `时间：${formState.time}`,
+    `地点：${formState.location.trim()}`,
+    `内容：${formState.content.trim()}`,
+  ].join('\n')
+}
+
 export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [formState, setFormState] = useState<FormState>(initialFormState)
@@ -57,8 +90,9 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRefining, setIsRefining] = useState(false)
+  const [isRefiningWithImages, setIsRefiningWithImages] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
-  const isBusy = isSubmitting || isRefining
+  const isBusy = isSubmitting || isRefining || isRefiningWithImages
   const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
 
   useEffect(() => {
@@ -144,6 +178,33 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setError(getErrorMessage(refineError, '润色失败，请稍后重试。'))
     } finally {
       setIsRefining(false)
+    }
+  }
+
+  const handleRefineContentWithImages = async () => {
+    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
+      setError('请先填写标题、时间、地点和内容。')
+      return
+    }
+
+    if (photoFiles.length === 0) {
+      setError('请先选择至少一张图片。')
+      return
+    }
+
+    const originalContent = formState.content
+
+    try {
+      setIsRefiningWithImages(true)
+      setError('')
+      const images = await Promise.all(photoFiles.map(fileToChatbotImage))
+      const response = await memoryService.refineTextWithImages(buildMemoryAssistantMessage(formState), images)
+      setContentBeforeRefine(originalContent)
+      setFormState((prev) => ({ ...prev, content: response.reply }))
+    } catch (refineError) {
+      setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
+    } finally {
+      setIsRefiningWithImages(false)
     }
   }
 
@@ -260,7 +321,29 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                     润色中...
                   </>
                 ) : (
-                  '文字助手'
+                  '文字AI助手'
+                )}
+              </button>
+              <button
+                type="button"
+                className="text-assistant-button"
+                onClick={handleRefineContentWithImages}
+                disabled={
+                  isBusy ||
+                  photoFiles.length === 0 ||
+                  !formState.title.trim() ||
+                  !formState.time ||
+                  !formState.location.trim() ||
+                  !formState.content.trim()
+                }
+              >
+                {isRefiningWithImages ? (
+                  <>
+                    <span className="text-assistant-spinner" aria-hidden="true" />
+                    图文润色中...
+                  </>
+                ) : (
+                  '图文AI助手'
                 )}
               </button>
             </div>

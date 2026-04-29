@@ -322,7 +322,7 @@
 .text-assistant-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   margin-top: 8px;
 }
@@ -357,6 +357,10 @@
   justify-content: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.text-assistant-icon-button + .text-assistant-button {
+  margin-left: auto;
 }
 
 .text-assistant-icon-button:hover,

@@ -1,5 +1,7 @@
 import { request } from './apiClient'
 import type {
+  ChatbotImageInput,
+  ChatbotImageRequest,
   ChatbotRequest,
   ChatbotResponse,
   CreateOrUpdateMemoryPayload,
@@ -14,6 +16,8 @@ const API_BASE_URL =
   (import.meta.env.PROD ? 'http://43.132.123.72' : 'http://localhost:5000')
 
 const REFINED_TEXT_PROMPT = '请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。不要添加任何说明或其他内容。'
+const REFINED_TEXT_PHOTO_PROMPT =
+  '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回文本不要添加其他。'
 
 function toAbsoluteMediaUrl(path: string): string {
   if (!path) return path
@@ -26,11 +30,22 @@ export const memoryService = {
   chat(payload: ChatbotRequest) {
     return request<ChatbotResponse>('/api/chatbot/chat', 'POST', payload, { auth: true })
   },
+  chatWithImages(payload: ChatbotImageRequest) {
+    return request<ChatbotResponse>('/api/chatbot/chat/images', 'POST', payload, { auth: true })
+  },
   refineText(message: string) {
     return request<ChatbotResponse>(
       '/api/chatbot/chat',
       'POST',
       { message, systemPrompt: REFINED_TEXT_PROMPT },
+      { auth: true },
+    )
+  },
+  refineTextWithImages(message: string, images: ChatbotImageInput[]) {
+    return request<ChatbotResponse>(
+      '/api/chatbot/chat/images',
+      'POST',
+      { message, images, systemPrompt: REFINED_TEXT_PHOTO_PROMPT },
       { auth: true },
     )
   },

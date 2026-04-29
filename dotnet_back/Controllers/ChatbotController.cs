@@ -33,4 +33,32 @@ public class ChatbotController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
         }
     }
+
+    [HttpPost("chat/images")]
+    public async Task<IActionResult> ChatWithImages([FromBody] ChatbotImageRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            return BadRequest(new { message = "消息不能为空。" });
+        }
+
+        if (request.Images.Count == 0)
+        {
+            return BadRequest(new { message = "请至少提供一张图片。" });
+        }
+
+        try
+        {
+            var response = await _chatbotService.GetReplyWithImagesAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+        }
+    }
 }

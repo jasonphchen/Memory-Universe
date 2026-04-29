@@ -16,6 +16,15 @@ export type ChatbotRequest = {
   systemPrompt?: string
 }
 
+export type ChatbotImageInput = {
+  base64: string
+  imageType: string
+}
+
+export type ChatbotImageRequest = ChatbotRequest & {
+  images: ChatbotImageInput[]
+}
+
 export type ChatbotResponse = {
   reply: string
   model: string

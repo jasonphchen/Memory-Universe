@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { memoryService } from '../services'
-import type { ApiError, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
+import type { ApiError, ChatbotImageInput, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
 
 type EditMemoryDialogProps = {
   memory: MemoryContent | null
@@ -66,6 +66,57 @@ function getFileNameFromUrl(url: string): string {
   }
 }
 
+function getImageTypeFromFile(file: File): string {
+  if (file.type.startsWith('image/')) {
+    return file.type
+  }
+
+  return file.name.split('.').pop() ?? ''
+}
+
+function getImageTypeFromUrl(url: string): string {
+  const cleanUrl = url.split('?')[0]
+  return cleanUrl.split('.').pop() ?? ''
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
+  return {
+    base64: await blobToDataUrl(file),
+    imageType: getImageTypeFromFile(file),
+  }
+}
+
+async function photoToChatbotImage(photo: MemoryPhoto): Promise<ChatbotImageInput> {
+  const response = await fetch(memoryService.toAbsoluteMediaUrl(photo.url))
+  if (!response.ok) {
+    throw new Error('读取已有图片失败。')
+  }
+
+  const blob = await response.blob()
+  return {
+    base64: await blobToDataUrl(blob),
+    imageType: blob.type || getImageTypeFromUrl(photo.url),
+  }
+}
+
+function buildMemoryAssistantMessage(formState: FormState): string {
+  return [
+    `标题：${formState.title.trim()}`,
+    `时间：${formState.time}`,
+    `地点：${formState.location.trim()}`,
+    `内容：${formState.content.trim()}`,
+  ].join('\n')
+}
+
 export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemoryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [formState, setFormState] = useState<FormState>({
@@ -83,8 +134,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRefining, setIsRefining] = useState(false)
+  const [isRefiningWithImages, setIsRefiningWithImages] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
-  const isBusy = isSubmitting || isRefining
+  const isBusy = isSubmitting || isRefining || isRefiningWithImages
   const totalPhotoCount = existingPhotos.length + photoFiles.length
   const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
 
@@ -118,6 +170,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     setRemovedAudioIds([])
     setError('')
     setIsRefining(false)
+    setIsRefiningWithImages(false)
     setContentBeforeRefine(null)
   }, [memory])
 
@@ -196,6 +249,36 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setError(getErrorMessage(refineError, '润色失败，请稍后重试。'))
     } finally {
       setIsRefining(false)
+    }
+  }
+
+  const handleRefineContentWithImages = async () => {
+    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
+      setError('请先填写标题、时间、地点和内容。')
+      return
+    }
+
+    if (totalPhotoCount === 0) {
+      setError('请先选择至少一张图片。')
+      return
+    }
+
+    const originalContent = formState.content
+
+    try {
+      setIsRefiningWithImages(true)
+      setError('')
+      const images = await Promise.all([
+        ...existingPhotos.map(photoToChatbotImage),
+        ...photoFiles.map(fileToChatbotImage),
+      ])
+      const response = await memoryService.refineTextWithImages(buildMemoryAssistantMessage(formState), images)
+      setContentBeforeRefine(originalContent)
+      setFormState((prev) => ({ ...prev, content: response.reply }))
+    } catch (refineError) {
+      setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
+    } finally {
+      setIsRefiningWithImages(false)
     }
   }
 
@@ -313,6 +396,28 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                   </>
                 ) : (
                   '文字AI助手'
+                )}
+              </button>
+              <button
+                type="button"
+                className="text-assistant-button"
+                onClick={handleRefineContentWithImages}
+                disabled={
+                  isBusy ||
+                  totalPhotoCount === 0 ||
+                  !formState.title.trim() ||
+                  !formState.time ||
+                  !formState.location.trim() ||
+                  !formState.content.trim()
+                }
+              >
+                {isRefiningWithImages ? (
+                  <>
+                    <span className="text-assistant-spinner" aria-hidden="true" />
+                    图文润色中...
+                  </>
+                ) : (
+                  '图文AI助手'
                 )}
               </button>
             </div>
