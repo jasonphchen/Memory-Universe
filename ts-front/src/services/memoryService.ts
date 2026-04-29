@@ -17,7 +17,7 @@ const API_BASE_URL =
 
 const REFINED_TEXT_PROMPT = '请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。不要添加任何说明或其他内容。'
 const REFINED_TEXT_PHOTO_PROMPT =
-  '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回文本不要添加其他。'
+  '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 
 function toAbsoluteMediaUrl(path: string): string {
   if (!path) return path

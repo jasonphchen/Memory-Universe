@@ -1,7 +1,8 @@
 # Memory Universe
 
 ```bash
-Three Images per dialog is maximum
+- Dotnet, React, C#, TypeScript, Semantic Kernal
+- Three Images per dialog is maximum
 ```
 
 ```bash
