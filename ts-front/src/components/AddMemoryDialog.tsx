@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { memoryService } from '../services'
-import type { ApiError, ChatbotImageInput, MemoryContent } from '../types/api'
+import type { ApiError, ChatbotAudioInput, ChatbotImageInput, MemoryContent } from '../types/api'
 
 type AddMemoryDialogProps = {
   isOpen: boolean
@@ -58,6 +58,14 @@ function getImageTypeFromFile(file: File): string {
   return file.name.split('.').pop() ?? ''
 }
 
+function getAudioTypeFromFile(file: File): string {
+  if (file.type.startsWith('audio/')) {
+    return file.type
+  }
+
+  return file.name.split('.').pop() ?? ''
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -71,6 +79,13 @@ async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
   return {
     base64: await fileToDataUrl(file),
     imageType: getImageTypeFromFile(file),
+  }
+}
+
+async function fileToChatbotAudio(file: File): Promise<ChatbotAudioInput> {
+  return {
+    base64: await fileToDataUrl(file),
+    audioType: getAudioTypeFromFile(file),
   }
 }
 
@@ -92,8 +107,9 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRefining, setIsRefining] = useState(false)
   const [isRefiningWithImages, setIsRefiningWithImages] = useState(false)
+  const [isRefiningWithAudio, setIsRefiningWithAudio] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
-  const isBusy = isSubmitting || isRefining || isRefiningWithImages
+  const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
   const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
   const isAudioLimitReached = audioFiles.length >= MAX_AUDIO_COUNT
 
@@ -207,6 +223,33 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
     } finally {
       setIsRefiningWithImages(false)
+    }
+  }
+
+  const handleRefineContentWithAudio = async () => {
+    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
+      setError('请先填写标题、时间、地点和内容。')
+      return
+    }
+
+    if (audioFiles.length === 0) {
+      setError('请先选择至少一段音频。')
+      return
+    }
+
+    const originalContent = formState.content
+
+    try {
+      setIsRefiningWithAudio(true)
+      setError('')
+      const audios = await Promise.all(audioFiles.map(fileToChatbotAudio))
+      const response = await memoryService.refineTextWithAudio(buildMemoryAssistantMessage(formState), audios)
+      setContentBeforeRefine(originalContent)
+      setFormState((prev) => ({ ...prev, content: response.reply }))
+    } catch (refineError) {
+      setError(getErrorMessage(refineError, '语音润色失败，请稍后重试。'))
+    } finally {
+      setIsRefiningWithAudio(false)
     }
   }
 
@@ -362,6 +405,28 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                   </>
                 ) : (
                   '图文AI助手'
+                )}
+              </button>
+              <button
+                type="button"
+                className="text-assistant-button"
+                onClick={handleRefineContentWithAudio}
+                disabled={
+                  isBusy ||
+                  audioFiles.length === 0 ||
+                  !formState.title.trim() ||
+                  !formState.time ||
+                  !formState.location.trim() ||
+                  !formState.content.trim()
+                }
+              >
+                {isRefiningWithAudio ? (
+                  <>
+                    <span className="text-assistant-spinner" aria-hidden="true" />
+                    语音润色中...
+                  </>
+                ) : (
+                  '语音AI助手'
                 )}
               </button>
             </div>

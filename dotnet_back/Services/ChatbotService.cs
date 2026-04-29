@@ -24,6 +24,19 @@ public class ChatbotImageInput
     public string ImageType { get; set; } = string.Empty;
 }
 
+public class ChatbotAudioRequest
+{
+    public string Message { get; set; } = string.Empty;
+    public string? SystemPrompt { get; set; }
+    public List<ChatbotAudioInput> Audios { get; set; } = [];
+}
+
+public class ChatbotAudioInput
+{
+    public string Base64 { get; set; } = string.Empty;
+    public string AudioType { get; set; } = string.Empty;
+}
+
 public record ChatbotResponse(string Reply, string Model);
 
 public class ChatbotService
@@ -123,6 +136,45 @@ public class ChatbotService
         return new ChatbotResponse(reply, Model);
     }
 
+    public async Task<ChatbotResponse> GetReplyWithAudioAsync(ChatbotAudioRequest request, CancellationToken cancellationToken = default)
+    {
+        var history = new ChatHistory();
+        history.AddSystemMessage(
+            string.IsNullOrWhiteSpace(request.SystemPrompt)
+                ? DefaultSystemPrompt
+                : request.SystemPrompt.Trim()
+        );
+
+        var contentItems = new ChatMessageContentItemCollection
+        {
+            new TextContent(request.Message.Trim())
+        };
+
+        foreach (var audio in request.Audios)
+        {
+            var mimeType = GetAudioMimeType(audio.AudioType, audio.Base64);
+            var audioBytes = DecodeBase64Audio(audio.Base64);
+#pragma warning disable SKEXP0001
+            contentItems.Add(new AudioContent(audioBytes, mimeType));
+#pragma warning restore SKEXP0001
+        }
+
+        history.AddUserMessage(contentItems);
+
+        var result = await _chatCompletionService.GetChatMessageContentAsync(
+            history,
+            executionSettings: null,
+            _kernel,
+            cancellationToken
+        );
+
+        var reply = string.IsNullOrWhiteSpace(result.Content)
+            ? "生成回复失败。"
+            : result.Content.Trim();
+
+        return new ChatbotResponse(reply, Model);
+    }
+
     private static byte[] DecodeBase64Image(string base64)
     {
         var payload = GetBase64Payload(base64);
@@ -138,6 +190,24 @@ public class ChatbotService
         catch (FormatException ex)
         {
             throw new ArgumentException("图片内容必须是有效的 Base64 字符串。", nameof(base64), ex);
+        }
+    }
+
+    private static byte[] DecodeBase64Audio(string base64)
+    {
+        var payload = GetBase64Payload(base64);
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            throw new ArgumentException("音频内容不能为空。", nameof(base64));
+        }
+
+        try
+        {
+            return Convert.FromBase64String(payload);
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException("音频内容必须是有效的 Base64 字符串。", nameof(base64), ex);
         }
     }
 
@@ -161,6 +231,19 @@ public class ChatbotService
         };
     }
 
+    private static string GetAudioMimeType(string audioType, string base64)
+    {
+        return NormalizeAudioType(audioType, base64) switch
+        {
+            ".mp3" => "audio/mpeg",
+            ".wav" => "audio/wav",
+            ".m4a" => "audio/mp4",
+            ".ogg" => "audio/ogg",
+            ".webm" => "audio/webm",
+            _ => throw new ArgumentException("不支持的音频格式。", nameof(audioType))
+        };
+    }
+
     private static string NormalizeImageType(string imageType, string base64)
     {
         if (string.IsNullOrWhiteSpace(imageType))
@@ -178,6 +261,23 @@ public class ChatbotService
         return normalized.StartsWith('.') ? normalized : $".{normalized}";
     }
 
+    private static string NormalizeAudioType(string audioType, string base64)
+    {
+        if (string.IsNullOrWhiteSpace(audioType))
+        {
+            audioType = GetDataUriAudioType(base64)
+                ?? throw new ArgumentException("音频格式不能为空。", nameof(audioType));
+        }
+
+        var normalized = audioType.Trim().ToLowerInvariant();
+        if (normalized.StartsWith("audio/"))
+        {
+            normalized = normalized["audio/".Length..];
+        }
+
+        return normalized.StartsWith('.') ? normalized : $".{normalized}";
+    }
+
     private static string? GetDataUriImageType(string base64)
     {
         var trimmed = base64.Trim();
@@ -190,6 +290,21 @@ public class ChatbotService
         var semicolonIndex = trimmed.IndexOf(';');
         return semicolonIndex > dataImagePrefix.Length
             ? trimmed[dataImagePrefix.Length..semicolonIndex]
+            : null;
+    }
+
+    private static string? GetDataUriAudioType(string base64)
+    {
+        var trimmed = base64.Trim();
+        const string dataAudioPrefix = "data:audio/";
+        if (!trimmed.StartsWith(dataAudioPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var semicolonIndex = trimmed.IndexOf(';');
+        return semicolonIndex > dataAudioPrefix.Length
+            ? trimmed[dataAudioPrefix.Length..semicolonIndex]
             : null;
     }
 }

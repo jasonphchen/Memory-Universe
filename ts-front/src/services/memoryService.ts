@@ -1,5 +1,7 @@
 import { request } from './apiClient'
 import type {
+  ChatbotAudioInput,
+  ChatbotAudioRequest,
   ChatbotImageInput,
   ChatbotImageRequest,
   ChatbotRequest,
@@ -18,6 +20,8 @@ const API_BASE_URL =
 const REFINED_TEXT_PROMPT = '请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。不要添加任何说明或其他内容。'
 const REFINED_TEXT_PHOTO_PROMPT =
   '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
+const REFINED_TEXT_AUDIO_PROMPT =
+  '这是我的语音以及语音相关的文本，请帮我润色一下文本，适当根据语音添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 
 function toAbsoluteMediaUrl(path: string): string {
   if (!path) return path
@@ -33,6 +37,9 @@ export const memoryService = {
   chatWithImages(payload: ChatbotImageRequest) {
     return request<ChatbotResponse>('/api/chatbot/chat/images', 'POST', payload, { auth: true })
   },
+  chatWithAudio(payload: ChatbotAudioRequest) {
+    return request<ChatbotResponse>('/api/chatbot/chat/audio', 'POST', payload, { auth: true })
+  },
   refineText(message: string) {
     return request<ChatbotResponse>(
       '/api/chatbot/chat',
@@ -46,6 +53,14 @@ export const memoryService = {
       '/api/chatbot/chat/images',
       'POST',
       { message, images, systemPrompt: REFINED_TEXT_PHOTO_PROMPT },
+      { auth: true },
+    )
+  },
+  refineTextWithAudio(message: string, audios: ChatbotAudioInput[]) {
+    return request<ChatbotResponse>(
+      '/api/chatbot/chat/audio',
+      'POST',
+      { message, audios, systemPrompt: REFINED_TEXT_AUDIO_PROMPT },
       { auth: true },
     )
   },

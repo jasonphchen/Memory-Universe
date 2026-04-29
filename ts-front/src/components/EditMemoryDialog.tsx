@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import { memoryService } from '../services'
-import type { ApiError, ChatbotImageInput, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
+import type { ApiError, ChatbotAudioInput, ChatbotImageInput, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
 
 type EditMemoryDialogProps = {
   memory: MemoryContent | null
@@ -80,6 +80,19 @@ function getImageTypeFromUrl(url: string): string {
   return cleanUrl.split('.').pop() ?? ''
 }
 
+function getAudioTypeFromFile(file: File): string {
+  if (file.type.startsWith('audio/')) {
+    return file.type
+  }
+
+  return file.name.split('.').pop() ?? ''
+}
+
+function getAudioTypeFromUrl(url: string): string {
+  const cleanUrl = url.split('?')[0]
+  return cleanUrl.split('.').pop() ?? ''
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -96,6 +109,13 @@ async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
   }
 }
 
+async function fileToChatbotAudio(file: File): Promise<ChatbotAudioInput> {
+  return {
+    base64: await blobToDataUrl(file),
+    audioType: getAudioTypeFromFile(file),
+  }
+}
+
 async function photoToChatbotImage(photo: MemoryPhoto): Promise<ChatbotImageInput> {
   const response = await fetch(memoryService.toAbsoluteMediaUrl(photo.url))
   if (!response.ok) {
@@ -106,6 +126,19 @@ async function photoToChatbotImage(photo: MemoryPhoto): Promise<ChatbotImageInpu
   return {
     base64: await blobToDataUrl(blob),
     imageType: blob.type || getImageTypeFromUrl(photo.url),
+  }
+}
+
+async function audioToChatbotAudio(audio: MemoryAudio): Promise<ChatbotAudioInput> {
+  const response = await fetch(memoryService.toAbsoluteMediaUrl(audio.url))
+  if (!response.ok) {
+    throw new Error('读取已有音频失败。')
+  }
+
+  const blob = await response.blob()
+  return {
+    base64: await blobToDataUrl(blob),
+    audioType: blob.type || getAudioTypeFromUrl(audio.url),
   }
 }
 
@@ -136,8 +169,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRefining, setIsRefining] = useState(false)
   const [isRefiningWithImages, setIsRefiningWithImages] = useState(false)
+  const [isRefiningWithAudio, setIsRefiningWithAudio] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
-  const isBusy = isSubmitting || isRefining || isRefiningWithImages
+  const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
   const totalPhotoCount = existingPhotos.length + photoFiles.length
   const totalAudioCount = existingAudios.length + audioFiles.length
   const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
@@ -174,6 +208,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     setError('')
     setIsRefining(false)
     setIsRefiningWithImages(false)
+    setIsRefiningWithAudio(false)
     setContentBeforeRefine(null)
   }, [memory])
 
@@ -282,6 +317,36 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
     } finally {
       setIsRefiningWithImages(false)
+    }
+  }
+
+  const handleRefineContentWithAudio = async () => {
+    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
+      setError('请先填写标题、时间、地点和内容。')
+      return
+    }
+
+    if (totalAudioCount === 0) {
+      setError('请先选择至少一段音频。')
+      return
+    }
+
+    const originalContent = formState.content
+
+    try {
+      setIsRefiningWithAudio(true)
+      setError('')
+      const audios = await Promise.all([
+        ...existingAudios.map(audioToChatbotAudio),
+        ...audioFiles.map(fileToChatbotAudio),
+      ])
+      const response = await memoryService.refineTextWithAudio(buildMemoryAssistantMessage(formState), audios)
+      setContentBeforeRefine(originalContent)
+      setFormState((prev) => ({ ...prev, content: response.reply }))
+    } catch (refineError) {
+      setError(getErrorMessage(refineError, '语音润色失败，请稍后重试。'))
+    } finally {
+      setIsRefiningWithAudio(false)
     }
   }
 
@@ -438,6 +503,28 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                   </>
                 ) : (
                   '图文AI助手'
+                )}
+              </button>
+              <button
+                type="button"
+                className="text-assistant-button"
+                onClick={handleRefineContentWithAudio}
+                disabled={
+                  isBusy ||
+                  totalAudioCount === 0 ||
+                  !formState.title.trim() ||
+                  !formState.time ||
+                  !formState.location.trim() ||
+                  !formState.content.trim()
+                }
+              >
+                {isRefiningWithAudio ? (
+                  <>
+                    <span className="text-assistant-spinner" aria-hidden="true" />
+                    语音润色中...
+                  </>
+                ) : (
+                  '语音AI助手'
                 )}
               </button>
             </div>

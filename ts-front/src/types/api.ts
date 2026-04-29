@@ -25,6 +25,15 @@ export type ChatbotImageRequest = ChatbotRequest & {
   images: ChatbotImageInput[]
 }
 
+export type ChatbotAudioInput = {
+  base64: string
+  audioType: string
+}
+
+export type ChatbotAudioRequest = ChatbotRequest & {
+  audios: ChatbotAudioInput[]
+}
+
 export type ChatbotResponse = {
   reply: string
   model: string
