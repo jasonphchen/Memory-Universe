@@ -1,6 +1,7 @@
 # Memory Universe
 
 ```bash
+- Server: TecentCloud, Nginx
 - Dotnet, React, C#, TypeScript, Semantic Kernal
 - Three Images per dialog is maximum
 ```
@@ -20,6 +21,7 @@ cd Memory-Universe
 git fetch origin
 git reset --hard origin/main
 cd dotnet_back
+Move the appsettings.json
 
 echo "[4/6] Building release version"
 dotnet publish -c Release
