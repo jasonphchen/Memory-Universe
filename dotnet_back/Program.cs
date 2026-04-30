@@ -8,7 +8,6 @@ using Dotnet_back.Chatbot;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 // MongoDB
 var mongoConnectionString = builder.Configuration["MongoDB:ConnectionString"]
     ?? throw new InvalidOperationException("MongoDB connection string is not configured.");
