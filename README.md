@@ -8,6 +8,9 @@
 
 ```bash
 http://43.132.123.72
+
+export PATH="/opt/homebrew/opt/dotnet@9/bin:$PATH"
+export DOTNET_ROOT="/opt/homebrew/opt/dotnet@9/libexec"
 ```
 
 ```bash

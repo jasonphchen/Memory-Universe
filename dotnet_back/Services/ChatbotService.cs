@@ -2,6 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using MagickException = ImageMagick.MagickException;
+using MagickFormat = ImageMagick.MagickFormat;
+using MagickImage = ImageMagick.MagickImage;
 
 namespace Dotnet_back.Chatbot;
 
@@ -115,9 +118,8 @@ public class ChatbotService
 
         foreach (var image in request.Images)
         {
-            var mimeType = GetImageMimeType(image.ImageType, image.Base64);
-            var imageBytes = DecodeBase64Image(image.Base64);
-            contentItems.Add(new ImageContent(imageBytes, mimeType));
+            var normalizedImage = PrepareImageForOpenAI(image);
+            contentItems.Add(new ImageContent(normalizedImage.Bytes, normalizedImage.MimeType));
         }
 
         history.AddUserMessage(contentItems);
@@ -218,17 +220,37 @@ public class ChatbotService
         return commaIndex >= 0 ? trimmed[(commaIndex + 1)..] : trimmed;
     }
 
-    private static string GetImageMimeType(string imageType, string base64)
+    private static (byte[] Bytes, string MimeType) PrepareImageForOpenAI(ChatbotImageInput image)
     {
-        return NormalizeImageType(imageType, base64) switch
+        var normalizedType = NormalizeImageType(image.ImageType, image.Base64);
+        var imageBytes = DecodeBase64Image(image.Base64);
+
+        return normalizedType switch
         {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            ".heic" => "image/heic",
-            ".heif" => "image/heif",
-            _ => throw new ArgumentException("不支持的图片格式。", nameof(imageType))
+            ".jpg" or ".jpeg" => (imageBytes, "image/jpeg"),
+            ".png" => (imageBytes, "image/png"),
+            ".webp" => (imageBytes, "image/webp"),
+            ".gif" => (imageBytes, "image/gif"),
+            ".heic" or ".heif" => (ConvertHeicToJpeg(imageBytes), "image/jpeg"),
+            _ => throw new ArgumentException("不支持的图片格式。", nameof(image.ImageType))
         };
+    }
+
+    private static byte[] ConvertHeicToJpeg(byte[] imageBytes)
+    {
+        try
+        {
+            using var image = new MagickImage(imageBytes);
+            image.AutoOrient();
+            image.Format = MagickFormat.Jpeg;
+            image.Quality = 90;
+
+            return image.ToByteArray(MagickFormat.Jpeg);
+        }
+        catch (MagickException ex)
+        {
+            throw new ArgumentException("HEIC/HEIF 图片转换失败。", nameof(imageBytes), ex);
+        }
     }
 
     private static string GetAudioMimeType(string audioType, string base64)
