@@ -62,3 +62,4 @@ wwwroot/uploads/tmp/
 
 appsettings.json
 wireguard
+wg0.conf
