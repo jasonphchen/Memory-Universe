@@ -37,14 +37,9 @@ public class ChatbotController : ControllerBase
     [HttpPost("chat/images")]
     public async Task<IActionResult> ChatWithImages([FromBody] ChatbotImageRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Message))
+        if (string.IsNullOrWhiteSpace(request.Message) && (request.Images?.Count ?? 0) == 0)
         {
-            return BadRequest(new { message = "消息不能为空。" });
-        }
-
-        if (request.Images.Count == 0)
-        {
-            return BadRequest(new { message = "请至少提供一张图片。" });
+            return BadRequest(new { message = "消息或图片不能为空。" });
         }
 
         try

@@ -19,7 +19,9 @@ const API_BASE_URL =
 
 const REFINED_TEXT_PROMPT = '请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。不要添加任何说明或其他内容。'
 const REFINED_TEXT_PHOTO_PROMPT =
-  '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
+  '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。如果没有图片，则润色一下文本。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
+const STORY_TEXT_PHOTO_PROMPT =
+  '这是我的图片以及图片相关的文本，请帮我根据图片和文本写一个适当的故事（100字-150字），适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。如果没有图片，就根据文本创建故事。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 const REFINED_TEXT_AUDIO_PROMPT =
   '这是我的语音以及语音相关的文本，请帮我润色一下文本，适当根据语音添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 
@@ -52,7 +54,23 @@ export const memoryService = {
     return request<ChatbotResponse>(
       '/api/chatbot/chat/images',
       'POST',
-      { message, images, systemPrompt: REFINED_TEXT_PHOTO_PROMPT },
+      {
+        systemPrompt: REFINED_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      },
+      { auth: true },
+    )
+  },
+  writeStoryWithImages(message: string, images: ChatbotImageInput[]) {
+    return request<ChatbotResponse>(
+      '/api/chatbot/chat/images',
+      'POST',
+      {
+        systemPrompt: STORY_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      },
       { auth: true },
     )
   },

@@ -99,7 +99,7 @@ public class ContentService
         return (true, audio);
     }
 
-    public async Task<bool> UpdateAsync(string id, string title, string content, DateOnly time, string location)
+    public async Task<bool> UpdateAsync(string id, string title, string content, DateOnly? time, string? location)
     {
         var update = Builders<MemoryContent>.Update
             .Set(x => x.Title, title)

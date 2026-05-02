@@ -26,13 +26,18 @@ public class ContentController : ControllerBase
             return BadRequest(new { message = "Title is required." });
         }
 
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            return BadRequest(new { message = "Content is required." });
+        }
+
         var memory = new MemoryContent
         {
             Id = string.Empty,
             Title = request.Title.Trim(),
             Content = request.Content.Trim(),
             Time = request.Time,
-            Location = request.Location.Trim(),
+            Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
             Photos = new List<MemoryPhoto>(),
             Audios = new List<MemoryAudio>()
         };
@@ -128,12 +133,17 @@ public class ContentController : ControllerBase
             return BadRequest(new { message = "Title is required." });
         }
 
+        if (string.IsNullOrWhiteSpace(request.Content))
+        {
+            return BadRequest(new { message = "Content is required." });
+        }
+
         var updated = await _contentService.UpdateAsync(
             id,
             request.Title.Trim(),
             request.Content.Trim(),
             request.Time,
-            request.Location.Trim()
+            string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim()
         );
 
         if (!updated)
@@ -254,7 +264,7 @@ public class ContentController : ControllerBase
         return NoContent();
     }
 
-    public record CreateMemoryRequest(string Title, string Content, DateOnly Time, string Location);
-    public record UpdateMemoryRequest(string Title, string Content, DateOnly Time, string Location);
+    public record CreateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location);
+    public record UpdateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location);
     public record MemoryListItemResponse(string Id, string Title);
 }

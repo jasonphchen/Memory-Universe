@@ -116,15 +116,17 @@ export function MemoryPanel({
     }
   }
 
-  const memoryTime = selectedMemory
+  const memoryTime = selectedMemory?.time
     ? (() => {
         const date = new Date(selectedMemory.time)
+        if (Number.isNaN(date.getTime())) return ''
         const year = date.getFullYear()
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const day = String(date.getDate()).padStart(2, '0')
         return `${year}/${month}/${day}`
       })()
     : ''
+  const memoryMeta = [memoryTime, selectedMemory?.location].filter(Boolean).join(' - ')
   const hasPhotos = (selectedMemory?.photos.length ?? 0) > 0
   const hasAudios = (selectedMemory?.audios.length ?? 0) > 0
 
@@ -152,9 +154,7 @@ export function MemoryPanel({
           ) : selectedMemory ? (
             <>
               <h2>{selectedMemory.title}</h2>
-              <p className="memory-meta">
-                {memoryTime} - {selectedMemory.location}
-              </p>
+              {memoryMeta ? <p className="memory-meta">{memoryMeta}</p> : null}
               <p>{selectedMemory.content}</p>
 
               {hasPhotos ? (

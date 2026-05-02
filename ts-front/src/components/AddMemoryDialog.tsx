@@ -91,11 +91,24 @@ async function fileToChatbotAudio(file: File): Promise<ChatbotAudioInput> {
 
 function buildMemoryAssistantMessage(formState: FormState): string {
   return [
-    `标题：${formState.title.trim()}`,
-    `时间：${formState.time}`,
-    `地点：${formState.location.trim()}`,
-    `内容：${formState.content.trim()}`,
-  ].join('\n')
+    formState.title.trim() ? `标题：${formState.title.trim()}` : '',
+    formState.time ? `时间：${formState.time}` : '',
+    formState.location.trim() ? `地点：${formState.location.trim()}` : '',
+    formState.content.trim() ? `内容：${formState.content.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function buildStoryAssistantMessage(formState: FormState): string {
+  return [
+    formState.title.trim() ? `标题：${formState.title.trim()}` : '',
+    formState.time ? `时间：${formState.time}` : '',
+    formState.location.trim() ? `地点：${formState.location.trim()}` : '',
+    formState.content.trim() ? `内容：${formState.content.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogProps) {
@@ -112,6 +125,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
   const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
   const isAudioLimitReached = audioFiles.length >= MAX_AUDIO_COUNT
+  const canUseImageAssistants = Boolean(buildStoryAssistantMessage(formState)) || photoFiles.length > 0
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -142,8 +156,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!formState.title || !formState.time || !formState.location || !formState.content) {
-      setError('请填写标题、时间、地点和内容。')
+    if (!formState.title.trim() || !formState.content.trim()) {
+      setError('请填写标题和内容。')
       return
     }
 
@@ -154,8 +168,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       const created = await memoryService.create({
         title: formState.title.trim(),
         content: formState.content.trim(),
-        time: formState.time,
-        location: formState.location.trim(),
+        ...(formState.time ? { time: formState.time } : {}),
+        ...(formState.location.trim() ? { location: formState.location.trim() } : {}),
       })
 
       if (photoFiles.length > 0) {
@@ -179,8 +193,9 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   }
 
   const handleRefineContent = async () => {
-    if (!formState.content.trim()) {
-      setError('请先输入要润色的内容。')
+    const message = buildStoryAssistantMessage(formState)
+    if (!message && photoFiles.length === 0) {
+      setError('请先输入文字或选择至少一张图片。')
       return
     }
 
@@ -189,24 +204,21 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     try {
       setIsRefining(true)
       setError('')
-      const response = await memoryService.refineText(originalContent)
+      const images = await Promise.all(photoFiles.map(fileToChatbotImage))
+      const response = await memoryService.writeStoryWithImages(message, images)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, '故事生成失败，请稍后重试。'))
     } finally {
       setIsRefining(false)
     }
   }
 
   const handleRefineContentWithImages = async () => {
-    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
-      setError('请先填写标题、时间、地点和内容。')
-      return
-    }
-
-    if (photoFiles.length === 0) {
-      setError('请先选择至少一张图片。')
+    const message = buildMemoryAssistantMessage(formState)
+    if (!message && photoFiles.length === 0) {
+      setError('请先输入文字或选择至少一张图片。')
       return
     }
 
@@ -216,7 +228,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsRefiningWithImages(true)
       setError('')
       const images = await Promise.all(photoFiles.map(fileToChatbotImage))
-      const response = await memoryService.refineTextWithImages(buildMemoryAssistantMessage(formState), images)
+      const response = await memoryService.refineTextWithImages(message, images)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -227,8 +239,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   }
 
   const handleRefineContentWithAudio = async () => {
-    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
-      setError('请先填写标题、时间、地点和内容。')
+    if (!formState.title.trim() || !formState.content.trim()) {
+      setError('请先填写标题和内容。')
       return
     }
 
@@ -309,7 +321,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     >
       <div className="create-memory-dialog-content">
         <h2>新增记忆</h2>
-        <p className="auth-subtitle">填写基础信息后可选上传多张图片和多段音频。</p>
         {error ? <p className="auth-error">{error}</p> : null}
 
         <form className="create-memory-form" onSubmit={handleSubmit}>
@@ -333,7 +344,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               value={formState.time}
               onChange={(event) => setFormState((prev) => ({ ...prev, time: event.target.value }))}
               disabled={isBusy}
-              required
             />
           </label>
 
@@ -345,7 +355,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               value={formState.location}
               onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
               disabled={isBusy}
-              required
             />
           </label>
 
@@ -374,29 +383,22 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 type="button"
                 className="text-assistant-button"
                 onClick={handleRefineContent}
-                disabled={isBusy || !formState.content.trim()}
+                disabled={isBusy || !canUseImageAssistants}
               >
                 {isRefining ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    润色中...
+                    故事生成中...
                   </>
                 ) : (
-                  '文字AI助手'
+                  '故事AI助手'
                 )}
               </button>
               <button
                 type="button"
                 className="text-assistant-button"
                 onClick={handleRefineContentWithImages}
-                disabled={
-                  isBusy ||
-                  photoFiles.length === 0 ||
-                  !formState.title.trim() ||
-                  !formState.time ||
-                  !formState.location.trim() ||
-                  !formState.content.trim()
-                }
+                disabled={isBusy || !canUseImageAssistants}
               >
                 {isRefiningWithImages ? (
                   <>
@@ -415,8 +417,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                   isBusy ||
                   audioFiles.length === 0 ||
                   !formState.title.trim() ||
-                  !formState.time ||
-                  !formState.location.trim() ||
                   !formState.content.trim()
                 }
               >

@@ -16,9 +16,9 @@ public class ChatbotRequest
 
 public class ChatbotImageRequest
 {
-    public string Message { get; set; } = string.Empty;
+    public string? Message { get; set; }
     public string? SystemPrompt { get; set; }
-    public List<ChatbotImageInput> Images { get; set; } = [];
+    public List<ChatbotImageInput>? Images { get; set; }
 }
 
 public class ChatbotImageInput
@@ -45,19 +45,7 @@ public record ChatbotResponse(string Reply, string Model);
 public class ChatbotService
 {
     private const string Model = "gpt-5.4-mini";
-    private const string DefaultSystemPrompt =
-        """
-        你是 Memory Universe 应用的智能助手。
-        请用简洁、实用、友好的方式回答用户问题。
-        """;
-    private const string RefinedTextPrompt =
-        """
-        请帮我将文本进行润色，使其更加流畅、自然、符合中文表达习惯。只返回文本不要添加其他。
-        """;
-    private const string RefinedTextPhotoPrompt =
-        """
-        这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。
-        """;
+    private const string DefaultSystemPrompt = "你是一个中文记忆助手，请根据用户输入提供自然、准确、简洁的回复。";
 
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
@@ -111,12 +99,14 @@ public class ChatbotService
                 : request.SystemPrompt.Trim()
         );
 
-        var contentItems = new ChatMessageContentItemCollection
-        {
-            new TextContent(request.Message.Trim())
-        };
+        var contentItems = new ChatMessageContentItemCollection();
 
-        foreach (var image in request.Images)
+        if (!string.IsNullOrWhiteSpace(request.Message))
+        {
+            contentItems.Add(new TextContent(request.Message.Trim()));
+        }
+
+        foreach (var image in request.Images ?? [])
         {
             var normalizedImage = PrepareImageForOpenAI(image);
             contentItems.Add(new ImageContent(normalizedImage.Bytes, normalizedImage.MimeType));

@@ -144,11 +144,24 @@ async function audioToChatbotAudio(audio: MemoryAudio): Promise<ChatbotAudioInpu
 
 function buildMemoryAssistantMessage(formState: FormState): string {
   return [
-    `标题：${formState.title.trim()}`,
-    `时间：${formState.time}`,
-    `地点：${formState.location.trim()}`,
-    `内容：${formState.content.trim()}`,
-  ].join('\n')
+    formState.title.trim() ? `标题：${formState.title.trim()}` : '',
+    formState.time ? `时间：${formState.time}` : '',
+    formState.location.trim() ? `地点：${formState.location.trim()}` : '',
+    formState.content.trim() ? `内容：${formState.content.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function buildStoryAssistantMessage(formState: FormState): string {
+  return [
+    formState.title.trim() ? `标题：${formState.title.trim()}` : '',
+    formState.time ? `时间：${formState.time}` : '',
+    formState.location.trim() ? `地点：${formState.location.trim()}` : '',
+    formState.content.trim() ? `内容：${formState.content.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemoryDialogProps) {
@@ -176,6 +189,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const totalAudioCount = existingAudios.length + audioFiles.length
   const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
   const isAudioLimitReached = totalAudioCount >= MAX_AUDIO_COUNT
+  const canUseImageAssistants = Boolean(buildStoryAssistantMessage(formState)) || totalPhotoCount > 0
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -195,8 +209,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     if (!memory) return
     setFormState({
       title: memory.title,
-      time: toDateInputValue(memory.time),
-      location: memory.location,
+      time: toDateInputValue(memory.time ?? ''),
+      location: memory.location ?? '',
       content: memory.content,
     })
     setPhotoFiles([])
@@ -228,8 +242,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     event.preventDefault()
     if (!memory) return
 
-    if (!formState.title || !formState.time || !formState.location || !formState.content) {
-      setError('请填写标题、时间、地点和内容。')
+    if (!formState.title.trim() || !formState.content.trim()) {
+      setError('请填写标题和内容。')
       return
     }
 
@@ -240,8 +254,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       await memoryService.update(memory.id, {
         title: formState.title.trim(),
         content: formState.content.trim(),
-        time: formState.time,
-        location: formState.location.trim(),
+        ...(formState.time ? { time: formState.time } : {}),
+        ...(formState.location.trim() ? { location: formState.location.trim() } : {}),
       })
 
       if (removedPhotoIds.length > 0) {
@@ -270,8 +284,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   }
 
   const handleRefineContent = async () => {
-    if (!formState.content.trim()) {
-      setError('请先输入要润色的内容。')
+    const message = buildStoryAssistantMessage(formState)
+    if (!message && totalPhotoCount === 0) {
+      setError('请先输入文字或选择至少一张图片。')
       return
     }
 
@@ -280,24 +295,24 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     try {
       setIsRefining(true)
       setError('')
-      const response = await memoryService.refineText(originalContent)
+      const images = await Promise.all([
+        ...existingPhotos.map(photoToChatbotImage),
+        ...photoFiles.map(fileToChatbotImage),
+      ])
+      const response = await memoryService.writeStoryWithImages(message, images)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, '故事生成失败，请稍后重试。'))
     } finally {
       setIsRefining(false)
     }
   }
 
   const handleRefineContentWithImages = async () => {
-    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
-      setError('请先填写标题、时间、地点和内容。')
-      return
-    }
-
-    if (totalPhotoCount === 0) {
-      setError('请先选择至少一张图片。')
+    const message = buildMemoryAssistantMessage(formState)
+    if (!message && totalPhotoCount === 0) {
+      setError('请先输入文字或选择至少一张图片。')
       return
     }
 
@@ -310,7 +325,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         ...existingPhotos.map(photoToChatbotImage),
         ...photoFiles.map(fileToChatbotImage),
       ])
-      const response = await memoryService.refineTextWithImages(buildMemoryAssistantMessage(formState), images)
+      const response = await memoryService.refineTextWithImages(message, images)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -321,8 +336,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   }
 
   const handleRefineContentWithAudio = async () => {
-    if (!formState.title.trim() || !formState.time || !formState.location.trim() || !formState.content.trim()) {
-      setError('请先填写标题、时间、地点和内容。')
+    if (!formState.title.trim() || !formState.content.trim()) {
+      setError('请先填写标题和内容。')
       return
     }
 
@@ -431,7 +446,6 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               value={formState.time}
               onChange={(event) => setFormState((prev) => ({ ...prev, time: event.target.value }))}
               disabled={isBusy}
-              required
             />
           </label>
 
@@ -443,7 +457,6 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               value={formState.location}
               onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
               disabled={isBusy}
-              required
             />
           </label>
 
@@ -472,29 +485,22 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 type="button"
                 className="text-assistant-button"
                 onClick={handleRefineContent}
-                disabled={isBusy || !formState.content.trim()}
+                disabled={isBusy || !canUseImageAssistants}
               >
                 {isRefining ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    润色中...
+                    故事生成中...
                   </>
                 ) : (
-                  '文字AI助手'
+                  '故事AI助手'
                 )}
               </button>
               <button
                 type="button"
                 className="text-assistant-button"
                 onClick={handleRefineContentWithImages}
-                disabled={
-                  isBusy ||
-                  totalPhotoCount === 0 ||
-                  !formState.title.trim() ||
-                  !formState.time ||
-                  !formState.location.trim() ||
-                  !formState.content.trim()
-                }
+                disabled={isBusy || !canUseImageAssistants}
               >
                 {isRefiningWithImages ? (
                   <>
@@ -513,8 +519,6 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                   isBusy ||
                   totalAudioCount === 0 ||
                   !formState.title.trim() ||
-                  !formState.time ||
-                  !formState.location.trim() ||
                   !formState.content.trim()
                 }
               >

@@ -21,8 +21,10 @@ export type ChatbotImageInput = {
   imageType: string
 }
 
-export type ChatbotImageRequest = ChatbotRequest & {
-  images: ChatbotImageInput[]
+export type ChatbotImageRequest = {
+  message?: string
+  systemPrompt?: string
+  images?: ChatbotImageInput[]
 }
 
 export type ChatbotAudioInput = {
@@ -60,8 +62,8 @@ export type MemoryContent = {
   id: string
   title: string
   content: string
-  time: string
-  location: string
+  time?: string | null
+  location?: string | null
   photos: MemoryPhoto[]
   audios: MemoryAudio[]
   createdAt: string
@@ -71,6 +73,6 @@ export type MemoryContent = {
 export type CreateOrUpdateMemoryPayload = {
   title: string
   content: string
-  time: string
-  location: string
+  time?: string
+  location?: string
 }
