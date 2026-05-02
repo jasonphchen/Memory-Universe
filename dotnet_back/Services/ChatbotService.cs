@@ -53,10 +53,11 @@ public class ChatbotService
     private const string AudioSummarySystemPrompt = "请将音频转录内容总结成约100字的简体中文。只输出总结内容，不要添加说明、标题或项目符号。";
 
     private readonly string _apiKey;
+    private readonly string _audioApiKey;
     private readonly string _chatModel;
     private readonly string _transcriptionModel;
     private readonly Uri _audioTranscriptionEndpoint;
-    private readonly bool _usesAzureOpenAIEndpoint;
+    private readonly bool _usesAzureOpenAIAudioEndpoint;
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
 
@@ -69,6 +70,7 @@ public class ChatbotService
         }
 
         _apiKey = apiKey;
+        _audioApiKey = GetConfiguredValue(configuration, "OpenAI:AudioApiKey", "OpenAI:AudioAPiKey") ?? apiKey;
         _chatModel = GetConfiguredModel(configuration, "OpenAI:ChatDeployment", "OpenAI:ChatModel", DefaultChatModel);
         _transcriptionModel = GetConfiguredModel(
             configuration,
@@ -78,19 +80,26 @@ public class ChatbotService
         );
 
         var apiBaseUrl = configuration["OpenAI:APIBaseUrl"];
+        var audioApiBaseUrl = configuration["OpenAI:APIAudioUrl"];
         var builder = Kernel.CreateBuilder();
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
         {
             builder.AddOpenAIChatCompletion(_chatModel, apiKey);
-            _audioTranscriptionEndpoint = new Uri("https://api.openai.com/v1/audio/transcriptions");
         }
         else
         {
             var endpoint = BuildOpenAICompatibleEndpoint(apiBaseUrl);
             builder.AddOpenAIChatCompletion(_chatModel, endpoint, apiKey);
-            _audioTranscriptionEndpoint = new Uri(endpoint, "audio/transcriptions");
-            _usesAzureOpenAIEndpoint = endpoint.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
         }
+
+        var audioEndpoint = string.IsNullOrWhiteSpace(audioApiBaseUrl)
+            ? (string.IsNullOrWhiteSpace(apiBaseUrl) ? null : BuildOpenAICompatibleEndpoint(apiBaseUrl))
+            : BuildOpenAICompatibleEndpoint(audioApiBaseUrl);
+        _audioTranscriptionEndpoint = audioEndpoint is null
+            ? new Uri("https://api.openai.com/v1/audio/transcriptions")
+            : new Uri(audioEndpoint, "audio/transcriptions");
+        _usesAzureOpenAIAudioEndpoint =
+            audioEndpoint?.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase) ?? false;
 
         _kernel = builder.Build();
 
@@ -215,10 +224,10 @@ public class ChatbotService
         using var form = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(audioBytes);
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-        if (_usesAzureOpenAIEndpoint)
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _audioApiKey);
+        if (_usesAzureOpenAIAudioEndpoint)
         {
-            request.Headers.Add("api-key", _apiKey);
+            request.Headers.Add("api-key", _audioApiKey);
         }
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
         form.Add(new StringContent(_transcriptionModel), "model");
@@ -273,6 +282,20 @@ public class ChatbotService
 
         var model = configuration[modelKey];
         return string.IsNullOrWhiteSpace(model) ? fallbackModel : model.Trim();
+    }
+
+    private static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = configuration[key];
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private static byte[] DecodeBase64Image(string base64)
