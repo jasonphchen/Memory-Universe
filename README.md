@@ -1,7 +1,19 @@
 # Memory Universe
 
 ## Features
-- 
+- Backend
+    - C#, Dotnet
+    - AI Package
+        - Semantic Kernal
+- Frontend
+    - TypeScript, React
+- Database
+    - MongoDB
+- AI
+    - OpenAI API (gpt-5.4-mini, gpt-4o-mini-transcribe)
+- Authentication (Register, Login)
+- Responsive (Desktop & Mobile)
+- CRUD Memory
 
 ```bash
 - Server: TecentCloud, Nginx

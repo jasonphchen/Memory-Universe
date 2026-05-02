@@ -47,12 +47,16 @@ public record AudioTranscriptionResponse([property: JsonPropertyName("text")] st
 
 public class ChatbotService
 {
-    private const string Model = "gpt-5.4-mini";
-    private const string TranscriptionModel = "gpt-4o-mini-transcribe";
+    private const string DefaultChatModel = "gpt-5.4-mini";
+    private const string DefaultTranscriptionModel = "gpt-4o-mini-transcribe";
     private const string DefaultSystemPrompt = "你是一个中文记忆助手，请根据用户输入提供自然、准确、简洁的回复。";
     private const string AudioSummarySystemPrompt = "请将音频转录内容总结成约100字的简体中文。只输出总结内容，不要添加说明、标题或项目符号。";
 
     private readonly string _apiKey;
+    private readonly string _chatModel;
+    private readonly string _transcriptionModel;
+    private readonly Uri _audioTranscriptionEndpoint;
+    private readonly bool _usesAzureOpenAIEndpoint;
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
 
@@ -65,10 +69,30 @@ public class ChatbotService
         }
 
         _apiKey = apiKey;
+        _chatModel = GetConfiguredModel(configuration, "OpenAI:ChatDeployment", "OpenAI:ChatModel", DefaultChatModel);
+        _transcriptionModel = GetConfiguredModel(
+            configuration,
+            "OpenAI:TranscriptionDeployment",
+            "OpenAI:TranscriptionModel",
+            DefaultTranscriptionModel
+        );
 
-        _kernel = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion(Model, apiKey)
-            .Build();
+        var apiBaseUrl = configuration["OpenAI:APIBaseUrl"];
+        var builder = Kernel.CreateBuilder();
+        if (string.IsNullOrWhiteSpace(apiBaseUrl))
+        {
+            builder.AddOpenAIChatCompletion(_chatModel, apiKey);
+            _audioTranscriptionEndpoint = new Uri("https://api.openai.com/v1/audio/transcriptions");
+        }
+        else
+        {
+            var endpoint = BuildOpenAICompatibleEndpoint(apiBaseUrl);
+            builder.AddOpenAIChatCompletion(_chatModel, endpoint, apiKey);
+            _audioTranscriptionEndpoint = new Uri(endpoint, "audio/transcriptions");
+            _usesAzureOpenAIEndpoint = endpoint.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase);
+        }
+
+        _kernel = builder.Build();
 
         _chatCompletionService = _kernel.Services.GetRequiredService<IChatCompletionService>();
     }
@@ -95,7 +119,7 @@ public class ChatbotService
             ? "生成回复失败。"
             : result.Content.Trim();
 
-        return new ChatbotResponse(reply, Model);
+        return new ChatbotResponse(reply, _chatModel);
     }
 
     public async Task<ChatbotResponse> GetReplyWithImagesAsync(ChatbotImageRequest request, CancellationToken cancellationToken = default)
@@ -133,7 +157,7 @@ public class ChatbotService
             ? "生成回复失败。"
             : result.Content.Trim();
 
-        return new ChatbotResponse(reply, Model);
+        return new ChatbotResponse(reply, _chatModel);
     }
 
     public async Task<ChatbotResponse> GetReplyWithAudioAsync(ChatbotAudioRequest request, CancellationToken cancellationToken = default)
@@ -153,12 +177,12 @@ public class ChatbotService
 
         if (transcripts.Count == 0)
         {
-            return new ChatbotResponse("音频转录失败。", TranscriptionModel);
+            return new ChatbotResponse("音频转录失败。", _transcriptionModel);
         }
 
         var reply = await SummarizeAudioTranscriptAsync(string.Join("\n\n", transcripts), cancellationToken);
 
-        return new ChatbotResponse(reply, Model);
+        return new ChatbotResponse(reply, _chatModel);
     }
 
     private async Task<string> SummarizeAudioTranscriptAsync(string transcript, CancellationToken cancellationToken)
@@ -187,13 +211,17 @@ public class ChatbotService
     )
     {
         using var httpClient = new HttpClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/audio/transcriptions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, _audioTranscriptionEndpoint);
         using var form = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(audioBytes);
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        if (_usesAzureOpenAIEndpoint)
+        {
+            request.Headers.Add("api-key", _apiKey);
+        }
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
-        form.Add(new StringContent(TranscriptionModel), "model");
+        form.Add(new StringContent(_transcriptionModel), "model");
         form.Add(fileContent, "file", fileName);
         request.Content = form;
 
@@ -206,6 +234,45 @@ public class ChatbotService
 
         var transcription = JsonSerializer.Deserialize<AudioTranscriptionResponse>(responseBody);
         return transcription?.Text ?? string.Empty;
+    }
+
+    private static Uri BuildOpenAICompatibleEndpoint(string apiBaseUrl)
+    {
+        var normalized = apiBaseUrl.Trim().TrimEnd('/');
+        if (normalized.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Uri($"{normalized}/");
+        }
+
+        if (normalized.Contains("/openai/v1", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Uri($"{normalized}/");
+        }
+
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out var uri) &&
+            uri.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return new Uri($"{normalized}/openai/v1/");
+        }
+
+        return new Uri($"{normalized}/v1/");
+    }
+
+    private static string GetConfiguredModel(
+        IConfiguration configuration,
+        string deploymentKey,
+        string modelKey,
+        string fallbackModel
+    )
+    {
+        var deployment = configuration[deploymentKey];
+        if (!string.IsNullOrWhiteSpace(deployment))
+        {
+            return deployment.Trim();
+        }
+
+        var model = configuration[modelKey];
+        return string.IsNullOrWhiteSpace(model) ? fallbackModel : model.Trim();
     }
 
     private static byte[] DecodeBase64Image(string base64)
