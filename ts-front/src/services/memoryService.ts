@@ -1,4 +1,5 @@
 import { request } from './apiClient'
+import type { OpenAiCredentials } from './langchain'
 import type {
   ChatbotAudioInput,
   ChatbotAudioRequest,
@@ -31,6 +32,9 @@ function toAbsoluteMediaUrl(path: string): string {
 }
 
 export const memoryService = {
+  getOpenAiCredentials() {
+    return request<OpenAiCredentials>('/api/content/openai-credentials', 'GET', undefined, { auth: true })
+  },
   chat(payload: ChatbotRequest) {
     return request<ChatbotResponse>('/api/chatbot/chat', 'POST', payload, { auth: true })
   },

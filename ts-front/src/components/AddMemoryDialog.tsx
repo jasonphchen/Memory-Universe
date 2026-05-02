@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
-import { memoryService } from '../services'
-import type { ApiError, ChatbotAudioInput, ChatbotImageInput, MemoryContent } from '../types/api'
+import {
+  createLangchainService,
+  memoryService,
+  REFINED_TEXT_PHOTO_PROMPT,
+  STORY_TEXT_PHOTO_PROMPT,
+} from '../services'
+import type { LangchainAudioInput, LangchainImageInput } from '../services'
+import type { ApiError, MemoryContent } from '../types/api'
 
 type AddMemoryDialogProps = {
   isOpen: boolean
@@ -75,14 +81,14 @@ function fileToDataUrl(file: File): Promise<string> {
   })
 }
 
-async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
+async function fileToChatbotImage(file: File): Promise<LangchainImageInput> {
   return {
     base64: await fileToDataUrl(file),
     imageType: getImageTypeFromFile(file),
   }
 }
 
-async function fileToChatbotAudio(file: File): Promise<ChatbotAudioInput> {
+async function fileToChatbotAudio(file: File): Promise<LangchainAudioInput> {
   return {
     base64: await fileToDataUrl(file),
     audioType: getAudioTypeFromFile(file),
@@ -205,7 +211,13 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsRefining(true)
       setError('')
       const images = await Promise.all(photoFiles.map(fileToChatbotImage))
-      const response = await memoryService.writeStoryWithImages(message, images)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithImages({
+        systemPrompt: STORY_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -228,7 +240,13 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsRefiningWithImages(true)
       setError('')
       const images = await Promise.all(photoFiles.map(fileToChatbotImage))
-      const response = await memoryService.refineTextWithImages(message, images)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithImages({
+        systemPrompt: REFINED_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -250,7 +268,9 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsRefiningWithAudio(true)
       setError('')
       const audios = await Promise.all(audioFiles.map(fileToChatbotAudio))
-      const response = await memoryService.transcribeAudio(audios)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithAudio({ audios })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {

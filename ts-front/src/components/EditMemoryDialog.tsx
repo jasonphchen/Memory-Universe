@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
-import { memoryService } from '../services'
-import type { ApiError, ChatbotAudioInput, ChatbotImageInput, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
+import {
+  createLangchainService,
+  memoryService,
+  REFINED_TEXT_PHOTO_PROMPT,
+  STORY_TEXT_PHOTO_PROMPT,
+} from '../services'
+import type { LangchainAudioInput, LangchainImageInput } from '../services'
+import type { ApiError, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
 
 type EditMemoryDialogProps = {
   memory: MemoryContent | null
@@ -102,21 +108,21 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
-async function fileToChatbotImage(file: File): Promise<ChatbotImageInput> {
+async function fileToChatbotImage(file: File): Promise<LangchainImageInput> {
   return {
     base64: await blobToDataUrl(file),
     imageType: getImageTypeFromFile(file),
   }
 }
 
-async function fileToChatbotAudio(file: File): Promise<ChatbotAudioInput> {
+async function fileToChatbotAudio(file: File): Promise<LangchainAudioInput> {
   return {
     base64: await blobToDataUrl(file),
     audioType: getAudioTypeFromFile(file),
   }
 }
 
-async function photoToChatbotImage(photo: MemoryPhoto): Promise<ChatbotImageInput> {
+async function photoToChatbotImage(photo: MemoryPhoto): Promise<LangchainImageInput> {
   const response = await fetch(memoryService.toAbsoluteMediaUrl(photo.url))
   if (!response.ok) {
     throw new Error('读取已有图片失败。')
@@ -129,7 +135,7 @@ async function photoToChatbotImage(photo: MemoryPhoto): Promise<ChatbotImageInpu
   }
 }
 
-async function audioToChatbotAudio(audio: MemoryAudio): Promise<ChatbotAudioInput> {
+async function audioToChatbotAudio(audio: MemoryAudio): Promise<LangchainAudioInput> {
   const response = await fetch(memoryService.toAbsoluteMediaUrl(audio.url))
   if (!response.ok) {
     throw new Error('读取已有音频失败。')
@@ -299,7 +305,13 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         ...existingPhotos.map(photoToChatbotImage),
         ...photoFiles.map(fileToChatbotImage),
       ])
-      const response = await memoryService.writeStoryWithImages(message, images)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithImages({
+        systemPrompt: STORY_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -325,7 +337,13 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         ...existingPhotos.map(photoToChatbotImage),
         ...photoFiles.map(fileToChatbotImage),
       ])
-      const response = await memoryService.refineTextWithImages(message, images)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithImages({
+        systemPrompt: REFINED_TEXT_PHOTO_PROMPT,
+        ...(message.trim() ? { message } : {}),
+        ...(images.length > 0 ? { images } : {}),
+      })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
@@ -350,7 +368,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         ...existingAudios.map(audioToChatbotAudio),
         ...audioFiles.map(fileToChatbotAudio),
       ])
-      const response = await memoryService.transcribeAudio(audios)
+      const credentials = await memoryService.getOpenAiCredentials()
+      const langchain = createLangchainService(credentials)
+      const response = await langchain.chatWithAudio({ audios })
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {

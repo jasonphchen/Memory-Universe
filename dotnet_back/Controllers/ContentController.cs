@@ -11,10 +11,12 @@ namespace Dotnet_back.Controllers;
 public class ContentController : ControllerBase
 {
     private readonly ContentService _contentService;
+    private readonly IConfiguration _configuration;
 
-    public ContentController(ContentService contentService)
+    public ContentController(ContentService contentService, IConfiguration configuration)
     {
         _contentService = contentService;
+        _configuration = configuration;
     }
 
     [HttpPost]
@@ -122,6 +124,19 @@ public class ContentController : ControllerBase
         var memories = await _contentService.GetAllAsync();
         var response = memories.Select(x => new MemoryListItemResponse(x.Id, x.Title)).ToList();
         return Ok(response);
+    }
+
+    [HttpGet("openai-credentials")]
+    [Authorize]
+    public IActionResult GetOpenAiCredentials()
+    {
+        return Ok(new
+        {
+            APIBaseUrl = _configuration["OpenAI:APIBaseUrl"],
+            APIAudioUrl = _configuration["OpenAI:APIAudioUrl"],
+            ApiKey = _configuration["OpenAI:ApiKey"],
+            AudioAPiKey = _configuration["OpenAI:AudioAPiKey"]
+        });
     }
 
     [HttpPut("{id}")]
