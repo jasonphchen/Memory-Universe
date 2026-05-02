@@ -60,11 +60,6 @@ public class ChatbotController : ControllerBase
     [HttpPost("chat/audio")]
     public async Task<IActionResult> ChatWithAudio([FromBody] ChatbotAudioRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Message))
-        {
-            return BadRequest(new { message = "消息不能为空。" });
-        }
-
         if (request.Audios.Count == 0)
         {
             return BadRequest(new { message = "请至少提供一段音频。" });

@@ -239,11 +239,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   }
 
   const handleRefineContentWithAudio = async () => {
-    if (!formState.title.trim() || !formState.content.trim()) {
-      setError('请先填写标题和内容。')
-      return
-    }
-
     if (audioFiles.length === 0) {
       setError('请先选择至少一段音频。')
       return
@@ -255,11 +250,11 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setIsRefiningWithAudio(true)
       setError('')
       const audios = await Promise.all(audioFiles.map(fileToChatbotAudio))
-      const response = await memoryService.refineTextWithAudio(buildMemoryAssistantMessage(formState), audios)
+      const response = await memoryService.transcribeAudio(audios)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '语音润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, '语音转录失败，请稍后重试。'))
     } finally {
       setIsRefiningWithAudio(false)
     }
@@ -415,18 +410,16 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 onClick={handleRefineContentWithAudio}
                 disabled={
                   isBusy ||
-                  audioFiles.length === 0 ||
-                  !formState.title.trim() ||
-                  !formState.content.trim()
+                  audioFiles.length === 0
                 }
               >
                 {isRefiningWithAudio ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    语音润色中...
+                    语音转录中...
                   </>
                 ) : (
-                  '语音AI助手'
+                  '语音转录AI'
                 )}
               </button>
             </div>

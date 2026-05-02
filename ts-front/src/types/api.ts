@@ -32,7 +32,7 @@ export type ChatbotAudioInput = {
   audioType: string
 }
 
-export type ChatbotAudioRequest = ChatbotRequest & {
+export type ChatbotAudioRequest = {
   audios: ChatbotAudioInput[]
 }
 

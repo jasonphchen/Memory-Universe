@@ -2,6 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MagickException = ImageMagick.MagickException;
 using MagickFormat = ImageMagick.MagickFormat;
 using MagickImage = ImageMagick.MagickImage;
@@ -29,8 +32,6 @@ public class ChatbotImageInput
 
 public class ChatbotAudioRequest
 {
-    public string Message { get; set; } = string.Empty;
-    public string? SystemPrompt { get; set; }
     public List<ChatbotAudioInput> Audios { get; set; } = [];
 }
 
@@ -42,11 +43,16 @@ public class ChatbotAudioInput
 
 public record ChatbotResponse(string Reply, string Model);
 
+public record AudioTranscriptionResponse([property: JsonPropertyName("text")] string? Text);
+
 public class ChatbotService
 {
     private const string Model = "gpt-5.4-mini";
+    private const string TranscriptionModel = "gpt-4o-mini-transcribe";
     private const string DefaultSystemPrompt = "你是一个中文记忆助手，请根据用户输入提供自然、准确、简洁的回复。";
+    private const string AudioSummarySystemPrompt = "请将音频转录内容总结成约100字的简体中文。只输出总结内容，不要添加说明、标题或项目符号。";
 
+    private readonly string _apiKey;
     private readonly Kernel _kernel;
     private readonly IChatCompletionService _chatCompletionService;
 
@@ -57,6 +63,8 @@ public class ChatbotService
         {
             throw new InvalidOperationException("尚未配置 OpenAI API 密钥。");
         }
+
+        _apiKey = apiKey;
 
         _kernel = Kernel.CreateBuilder()
             .AddOpenAIChatCompletion(Model, apiKey)
@@ -130,28 +138,34 @@ public class ChatbotService
 
     public async Task<ChatbotResponse> GetReplyWithAudioAsync(ChatbotAudioRequest request, CancellationToken cancellationToken = default)
     {
-        var history = new ChatHistory();
-        history.AddSystemMessage(
-            string.IsNullOrWhiteSpace(request.SystemPrompt)
-                ? DefaultSystemPrompt
-                : request.SystemPrompt.Trim()
-        );
+        var transcripts = new List<string>();
 
-        var contentItems = new ChatMessageContentItemCollection
+        for (var index = 0; index < request.Audios.Count; index++)
         {
-            new TextContent(request.Message.Trim())
-        };
-
-        foreach (var audio in request.Audios)
-        {
-            var mimeType = GetAudioMimeType(audio.AudioType, audio.Base64);
-            var audioBytes = DecodeBase64Audio(audio.Base64);
-#pragma warning disable SKEXP0001
-            contentItems.Add(new AudioContent(audioBytes, mimeType));
-#pragma warning restore SKEXP0001
+            var audio = request.Audios[index];
+            var audioFile = PrepareAudioForTranscription(audio);
+            var transcript = await TranscribeAudioAsync(audioFile.Bytes, audioFile.MimeType, audioFile.FileName, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(transcript))
+            {
+                transcripts.Add(transcript.Trim());
+            }
         }
 
-        history.AddUserMessage(contentItems);
+        if (transcripts.Count == 0)
+        {
+            return new ChatbotResponse("音频转录失败。", TranscriptionModel);
+        }
+
+        var reply = await SummarizeAudioTranscriptAsync(string.Join("\n\n", transcripts), cancellationToken);
+
+        return new ChatbotResponse(reply, Model);
+    }
+
+    private async Task<string> SummarizeAudioTranscriptAsync(string transcript, CancellationToken cancellationToken)
+    {
+        var history = new ChatHistory();
+        history.AddSystemMessage(AudioSummarySystemPrompt);
+        history.AddUserMessage(transcript.Trim());
 
         var result = await _chatCompletionService.GetChatMessageContentAsync(
             history,
@@ -160,11 +174,38 @@ public class ChatbotService
             cancellationToken
         );
 
-        var reply = string.IsNullOrWhiteSpace(result.Content)
-            ? "生成回复失败。"
+        return string.IsNullOrWhiteSpace(result.Content)
+            ? "音频总结失败。"
             : result.Content.Trim();
+    }
 
-        return new ChatbotResponse(reply, Model);
+    private async Task<string> TranscribeAudioAsync(
+        byte[] audioBytes,
+        string mimeType,
+        string fileName,
+        CancellationToken cancellationToken
+    )
+    {
+        using var httpClient = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/audio/transcriptions");
+        using var form = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(audioBytes);
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+        form.Add(new StringContent(TranscriptionModel), "model");
+        form.Add(fileContent, "file", fileName);
+        request.Content = form;
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"音频转写失败：{responseBody}");
+        }
+
+        var transcription = JsonSerializer.Deserialize<AudioTranscriptionResponse>(responseBody);
+        return transcription?.Text ?? string.Empty;
     }
 
     private static byte[] DecodeBase64Image(string base64)
@@ -243,16 +284,19 @@ public class ChatbotService
         }
     }
 
-    private static string GetAudioMimeType(string audioType, string base64)
+    private static (byte[] Bytes, string MimeType, string FileName) PrepareAudioForTranscription(ChatbotAudioInput audio)
     {
-        return NormalizeAudioType(audioType, base64) switch
+        var normalizedType = NormalizeAudioType(audio.AudioType, audio.Base64);
+        var audioBytes = DecodeBase64Audio(audio.Base64);
+
+        return normalizedType switch
         {
-            ".mp3" => "audio/mpeg",
-            ".wav" => "audio/wav",
-            ".m4a" => "audio/mp4",
-            ".ogg" => "audio/ogg",
-            ".webm" => "audio/webm",
-            _ => throw new ArgumentException("不支持的音频格式。", nameof(audioType))
+            ".mp3" or ".mpeg" or ".mpga" => (audioBytes, "audio/mpeg", "audio.mp3"),
+            ".wav" => (audioBytes, "audio/wav", "audio.wav"),
+            ".m4a" => (audioBytes, "audio/mp4", "audio.m4a"),
+            ".ogg" => (audioBytes, "audio/ogg", "audio.ogg"),
+            ".webm" => (audioBytes, "audio/webm", "audio.webm"),
+            _ => throw new ArgumentException("不支持的音频格式。", nameof(audio.AudioType))
         };
     }
 

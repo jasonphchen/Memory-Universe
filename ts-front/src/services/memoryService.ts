@@ -22,8 +22,6 @@ const REFINED_TEXT_PHOTO_PROMPT =
   '这是我的图片以及图片相关的文本，请帮我润色一下文本，适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。如果没有图片，则润色一下文本。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 const STORY_TEXT_PHOTO_PROMPT =
   '这是我的图片以及图片相关的文本，请帮我根据图片和文本写一个适当的故事（100字-150字），适当根据图片添加一些细节，使其更加流畅、自然、符合中文表达习惯。如果没有图片，就根据文本创建故事。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
-const REFINED_TEXT_AUDIO_PROMPT =
-  '这是我的语音以及语音相关的文本，请帮我润色一下文本，适当根据语音添加一些细节，使其更加流畅、自然、符合中文表达习惯。只返回内容即可，不用返回标题，时间，地点。不要添加任何说明或其他内容。'
 
 function toAbsoluteMediaUrl(path: string): string {
   if (!path) return path
@@ -74,11 +72,11 @@ export const memoryService = {
       { auth: true },
     )
   },
-  refineTextWithAudio(message: string, audios: ChatbotAudioInput[]) {
+  transcribeAudio(audios: ChatbotAudioInput[]) {
     return request<ChatbotResponse>(
       '/api/chatbot/chat/audio',
       'POST',
-      { message, audios, systemPrompt: REFINED_TEXT_AUDIO_PROMPT },
+      { audios },
       { auth: true },
     )
   },

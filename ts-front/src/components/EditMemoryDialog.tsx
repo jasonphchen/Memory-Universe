@@ -336,11 +336,6 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   }
 
   const handleRefineContentWithAudio = async () => {
-    if (!formState.title.trim() || !formState.content.trim()) {
-      setError('请先填写标题和内容。')
-      return
-    }
-
     if (totalAudioCount === 0) {
       setError('请先选择至少一段音频。')
       return
@@ -355,11 +350,11 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         ...existingAudios.map(audioToChatbotAudio),
         ...audioFiles.map(fileToChatbotAudio),
       ])
-      const response = await memoryService.refineTextWithAudio(buildMemoryAssistantMessage(formState), audios)
+      const response = await memoryService.transcribeAudio(audios)
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '语音润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, '语音转录失败，请稍后重试。'))
     } finally {
       setIsRefiningWithAudio(false)
     }
@@ -517,18 +512,16 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 onClick={handleRefineContentWithAudio}
                 disabled={
                   isBusy ||
-                  totalAudioCount === 0 ||
-                  !formState.title.trim() ||
-                  !formState.content.trim()
+                  totalAudioCount === 0
                 }
               >
                 {isRefiningWithAudio ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    语音润色中...
+                    语音转录中...
                   </>
                 ) : (
-                  '语音AI助手'
+                  '语音转录AI'
                 )}
               </button>
             </div>
