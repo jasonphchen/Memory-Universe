@@ -49,6 +49,7 @@ public class ChatbotService
 {
     private const string DefaultChatModel = "gpt-5.4-mini";
     private const string DefaultTranscriptionModel = "gpt-4o-mini-transcribe";
+    private const string DefaultAzureAudioApiVersion = "2025-03-01-preview";
     private const string DefaultSystemPrompt = "你是一个中文记忆助手，请根据用户输入提供自然、准确、简洁的回复。";
     private const string AudioSummarySystemPrompt = "请将音频转录内容总结成约100字的简体中文。只输出总结内容，不要添加说明、标题或项目符号。";
 
@@ -70,7 +71,7 @@ public class ChatbotService
         }
 
         _apiKey = apiKey;
-        _audioApiKey = GetConfiguredValue(configuration, "OpenAI:AudioApiKey", "OpenAI:AudioAPiKey") ?? apiKey;
+        _audioApiKey = GetAudioApiKey(configuration) ?? apiKey;
         _chatModel = GetConfiguredModel(configuration, "OpenAI:ChatDeployment", "OpenAI:ChatModel", DefaultChatModel);
         _transcriptionModel = GetConfiguredModel(
             configuration,
@@ -80,7 +81,7 @@ public class ChatbotService
         );
 
         var apiBaseUrl = configuration["OpenAI:APIBaseUrl"];
-        var audioApiBaseUrl = configuration["OpenAI:APIAudioUrl"];
+        var apiAudioUrl = configuration["OpenAI:APIAudioUrl"];
         var builder = Kernel.CreateBuilder();
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
         {
@@ -92,14 +93,13 @@ public class ChatbotService
             builder.AddOpenAIChatCompletion(_chatModel, endpoint, apiKey);
         }
 
-        var audioEndpoint = string.IsNullOrWhiteSpace(audioApiBaseUrl)
-            ? (string.IsNullOrWhiteSpace(apiBaseUrl) ? null : BuildOpenAICompatibleEndpoint(apiBaseUrl))
-            : BuildOpenAICompatibleEndpoint(audioApiBaseUrl);
-        _audioTranscriptionEndpoint = audioEndpoint is null
-            ? new Uri("https://api.openai.com/v1/audio/transcriptions")
-            : new Uri(audioEndpoint, "audio/transcriptions");
-        _usesAzureOpenAIAudioEndpoint =
-            audioEndpoint?.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase) ?? false;
+        var audioEndpoint = BuildAudioTranscriptionEndpoint(
+            string.IsNullOrWhiteSpace(apiAudioUrl) ? apiBaseUrl : apiAudioUrl,
+            _transcriptionModel,
+            configuration["OpenAI:AudioApiVersion"]
+        );
+        _audioTranscriptionEndpoint = audioEndpoint.Endpoint;
+        _usesAzureOpenAIAudioEndpoint = audioEndpoint.UsesAzureEndpoint;
 
         _kernel = builder.Build();
 
@@ -230,7 +230,10 @@ public class ChatbotService
             request.Headers.Add("api-key", _audioApiKey);
         }
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
-        form.Add(new StringContent(_transcriptionModel), "model");
+        if (!_usesAzureOpenAIAudioEndpoint)
+        {
+            form.Add(new StringContent(_transcriptionModel), "model");
+        }
         form.Add(fileContent, "file", fileName);
         request.Content = form;
 
@@ -267,6 +270,41 @@ public class ChatbotService
         return new Uri($"{normalized}/v1/");
     }
 
+    private static (Uri Endpoint, bool UsesAzureEndpoint) BuildAudioTranscriptionEndpoint(
+        string? apiAudioUrl,
+        string transcriptionDeployment,
+        string? azureApiVersion
+    )
+    {
+        if (string.IsNullOrWhiteSpace(apiAudioUrl))
+        {
+            return (new Uri("https://api.openai.com/v1/audio/transcriptions"), false);
+        }
+
+        var normalized = apiAudioUrl.Trim().TrimEnd('/');
+        if (normalized.Contains("/audio/transcriptions", StringComparison.OrdinalIgnoreCase))
+        {
+            var endpoint = new Uri(normalized);
+            return (endpoint, endpoint.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase));
+        }
+
+        var baseUri = new Uri($"{normalized}/");
+        if (baseUri.Host.EndsWith(".openai.azure.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiVersion = string.IsNullOrWhiteSpace(azureApiVersion)
+                ? DefaultAzureAudioApiVersion
+                : azureApiVersion.Trim();
+            var deployment = Uri.EscapeDataString(transcriptionDeployment);
+            return (
+                new Uri(baseUri, $"openai/deployments/{deployment}/audio/transcriptions?api-version={apiVersion}"),
+                true
+            );
+        }
+
+        var openAICompatibleEndpoint = BuildOpenAICompatibleEndpoint(apiAudioUrl);
+        return (new Uri(openAICompatibleEndpoint, "audio/transcriptions"), false);
+    }
+
     private static string GetConfiguredModel(
         IConfiguration configuration,
         string deploymentKey,
@@ -284,18 +322,17 @@ public class ChatbotService
         return string.IsNullOrWhiteSpace(model) ? fallbackModel : model.Trim();
     }
 
-    private static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
+    private static string? GetAudioApiKey(IConfiguration configuration)
     {
-        foreach (var key in keys)
+        var audioApiKey = configuration["OpenAI:AudioApiKey"];
+        if (!string.IsNullOrWhiteSpace(audioApiKey))
         {
-            var value = configuration[key];
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value.Trim();
-            }
+            return audioApiKey.Trim();
         }
 
-        return null;
+        // Keep compatibility with the existing appsettings casing.
+        audioApiKey = configuration["OpenAI:AudioAPiKey"];
+        return string.IsNullOrWhiteSpace(audioApiKey) ? null : audioApiKey.Trim();
     }
 
     private static byte[] DecodeBase64Image(string base64)
