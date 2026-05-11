@@ -4,6 +4,7 @@ using System.Text;
 using MongoDB.Driver;
 using Dotnet_back.Services.JwtService;
 using Dotnet_back.Services.ContentService;
+using Dotnet_back.Services.Geocoding;
 using Dotnet_back.Chatbot;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,8 @@ builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoConnection
 // Controllers
 builder.Services.AddControllers();
 builder.Services.AddSingleton<JwtService>();
+builder.Services.AddHttpClient(GeocodingService.HttpClientName);
+builder.Services.AddSingleton<GeocodingService>();
 builder.Services.AddSingleton<ContentService>();
 builder.Services.AddSingleton<ChatbotService>();
 

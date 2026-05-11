@@ -40,6 +40,8 @@ public class ContentController : ControllerBase
             Content = request.Content.Trim(),
             Time = request.Time,
             Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
             Photos = new List<MemoryPhoto>(),
             Audios = new List<MemoryAudio>()
         };
@@ -158,7 +160,9 @@ public class ContentController : ControllerBase
             request.Title.Trim(),
             request.Content.Trim(),
             request.Time,
-            string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim()
+            string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
+            request.Latitude,
+            request.Longitude
         );
 
         if (!updated)
@@ -279,7 +283,7 @@ public class ContentController : ControllerBase
         return NoContent();
     }
 
-    public record CreateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location);
-    public record UpdateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location);
+    public record CreateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location, double? Latitude, double? Longitude);
+    public record UpdateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location, double? Latitude, double? Longitude);
     public record MemoryListItemResponse(string Id, string Title);
 }

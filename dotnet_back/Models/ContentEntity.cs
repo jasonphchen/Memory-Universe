@@ -7,6 +7,8 @@ public class MemoryContent
     public string? Content { get; set; }
     public DateOnly? Time { get; set; }
     public string? Location { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public List<MemoryPhoto> Photos { get; set; } = new();
     public List<MemoryAudio> Audios { get; set; } = new();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

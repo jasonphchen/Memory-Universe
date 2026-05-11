@@ -1,4 +1,5 @@
 using Dotnet_back.Models.ContentEntity;
+using Dotnet_back.Services.Geocoding;
 using Microsoft.AspNetCore.Http;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -13,6 +14,7 @@ namespace Dotnet_back.Services.ContentService;
 public class ContentService
 {
     private readonly IMongoCollection<MemoryContent> _memoryCollection;
+    private readonly GeocodingService _geocodingService;
     private readonly string _uploadsRoot;
     private readonly string _photosRoot;
     private readonly string _audiosRoot;
@@ -23,8 +25,9 @@ public class ContentService
     private readonly int _photoJpegQuality;
     private readonly int _audioBitrateKbps;
 
-    public ContentService(IMongoClient mongoClient, IConfiguration configuration, IWebHostEnvironment environment)
+    public ContentService(IMongoClient mongoClient, IConfiguration configuration, IWebHostEnvironment environment, GeocodingService geocodingService)
     {
+        _geocodingService = geocodingService;
         var databaseName = configuration["MongoDB:DatabaseName"] ?? "memory_universe";
         var collectionName = configuration["MongoDB:MemoryCollectionName"] ?? "memories";
         var database = mongoClient.GetDatabase(databaseName);
@@ -52,14 +55,26 @@ public class ContentService
         _audioBitrateKbps = configuration.GetValue<int?>("Media:AudioBitrateKbps") ?? 24;
     }
 
-    public async Task<MemoryContent> CreateAsync(MemoryContent memory)
+    public async Task<MemoryContent> CreateAsync(MemoryContent memory, CancellationToken cancellationToken = default)
     {
         memory.Id = ObjectId.GenerateNewId().ToString();
         memory.CreatedAt = DateTime.UtcNow;
         memory.UpdatedAt = DateTime.UtcNow;
 
-        await _memoryCollection.InsertOneAsync(memory);
+        await ResolveCoordinatesAsync(memory, cancellationToken);
+
+        await _memoryCollection.InsertOneAsync(memory, cancellationToken: cancellationToken);
         return memory;
+    }
+
+    private async Task ResolveCoordinatesAsync(MemoryContent memory, CancellationToken cancellationToken)
+    {
+        if ((memory.Latitude is null || memory.Longitude is null) && !string.IsNullOrWhiteSpace(memory.Location))
+        {
+            var (lat, lon) = await _geocodingService.GeocodeAsync(memory.Location, cancellationToken);
+            memory.Latitude = lat;
+            memory.Longitude = lon;
+        }
     }
 
     public async Task<List<MemoryContent>> GetAllAsync()
@@ -99,16 +114,25 @@ public class ContentService
         return (true, audio);
     }
 
-    public async Task<bool> UpdateAsync(string id, string title, string content, DateOnly? time, string? location)
+    public async Task<bool> UpdateAsync(string id, string title, string content, DateOnly? time, string? location, double? latitude, double? longitude, CancellationToken cancellationToken = default)
     {
+        if ((latitude is null || longitude is null) && !string.IsNullOrWhiteSpace(location))
+        {
+            var (resolvedLat, resolvedLon) = await _geocodingService.GeocodeAsync(location, cancellationToken);
+            latitude = resolvedLat;
+            longitude = resolvedLon;
+        }
+
         var update = Builders<MemoryContent>.Update
             .Set(x => x.Title, title)
             .Set(x => x.Content, content)
             .Set(x => x.Time, time)
             .Set(x => x.Location, location)
+            .Set(x => x.Latitude, latitude)
+            .Set(x => x.Longitude, longitude)
             .Set(x => x.UpdatedAt, DateTime.UtcNow);
 
-        var result = await _memoryCollection.UpdateOneAsync(x => x.Id == id, update);
+        var result = await _memoryCollection.UpdateOneAsync(x => x.Id == id, update, cancellationToken: cancellationToken);
         return result.MatchedCount > 0;
     }
 
