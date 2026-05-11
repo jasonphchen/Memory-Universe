@@ -48,6 +48,7 @@ export function AudioTranscribeButton({
   const [isTranscribing, setIsTranscribing] = useState(false)
 
   useEffect(() => {
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
       const recorder = mediaRecorderRef.current
@@ -71,12 +72,22 @@ export function AudioTranscribeButton({
   const transcribeChunks = async () => {
     const chunks = chunksRef.current
     chunksRef.current = []
-    if (chunks.length === 0) return
+    if (chunks.length === 0) {
+      if (mountedRef.current) setIsTranscribing(false)
+      onError?.('未捕获到音频数据，请重试（录音时间可能过短）。')
+      return
+    }
 
     const recorder = mediaRecorderRef.current
     const rawMime = recorder?.mimeType || 'audio/webm'
     const baseMime = rawMime.split(';')[0] || 'audio/webm'
     const blob = new Blob(chunks, { type: baseMime })
+
+    if (blob.size === 0) {
+      if (mountedRef.current) setIsTranscribing(false)
+      onError?.('音频内容为空，请重试。')
+      return
+    }
 
     if (!mountedRef.current) return
 
@@ -135,6 +146,9 @@ export function AudioTranscribeButton({
         releaseStream()
         void transcribeChunks()
       }
+      recorder.onerror = () => {
+        onError?.('录音过程中出现错误，请重试。')
+      }
 
       mediaRecorderRef.current = recorder
       recorder.start()
@@ -147,16 +161,18 @@ export function AudioTranscribeButton({
 
   const stopRecording = () => {
     const recorder = mediaRecorderRef.current
+    setIsRecording(false)
     if (recorder && recorder.state !== 'inactive') {
+      setIsTranscribing(true)
       try {
         recorder.stop()
       } catch {
+        setIsTranscribing(false)
         releaseStream()
       }
     } else {
       releaseStream()
     }
-    setIsRecording(false)
   }
 
   const handleClick = () => {
@@ -174,17 +190,20 @@ export function AudioTranscribeButton({
       ? '识别中'
       : ariaLabel || '语音输入'
 
+  const stateClass = isRecording ? ' recording' : isTranscribing ? ' transcribing' : ''
+
   return (
     <button
       type="button"
-      className={`audio-transcribe-button${isRecording ? ' recording' : ''}`}
+      className={`audio-transcribe-button${stateClass}`}
       onClick={handleClick}
       disabled={disabled || isTranscribing}
       aria-label={label}
       title={label}
+      aria-busy={isTranscribing || undefined}
     >
       {isTranscribing ? (
-        <span className="text-assistant-spinner" aria-hidden="true" />
+        <span className="audio-transcribe-spinner" aria-hidden="true" />
       ) : (
         <svg
           width="16"
