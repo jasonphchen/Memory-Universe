@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, MouseEvent } from 'react'
 import {
   createLangchainService,
+  extractLocationFromPhotos,
   memoryService,
   REFINED_TEXT_PHOTO_PROMPT,
   STORY_TEXT_PHOTO_PROMPT,
@@ -404,7 +405,16 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setError('')
     }
 
-    setPhotoFiles(mergedFiles.slice(0, remainingSlots))
+    const trimmed = mergedFiles.slice(0, remainingSlots)
+    setPhotoFiles(trimmed)
+    void autoFillLocationFromPhotos(trimmed)
+  }
+
+  const autoFillLocationFromPhotos = async (files: File[]) => {
+    if (formState.location.trim()) return
+    const location = await extractLocationFromPhotos(files)
+    if (!location) return
+    setFormState((prev) => (prev.location.trim() ? prev : { ...prev, location }))
   }
 
   const handleAudioChange = (files: FileList | null) => {

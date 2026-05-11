@@ -16,3 +16,5 @@ export type {
   OpenAiCredentials,
 } from './langchain'
 export { memoryService } from './memoryService'
+export { extractLocationFromPhotos, readImageGps, reverseGeocode } from './imageExif'
+export type { GpsCoordinate } from './imageExif'
