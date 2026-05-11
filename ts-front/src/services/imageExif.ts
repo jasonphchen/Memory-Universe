@@ -136,13 +136,38 @@ export async function reverseGeocode(
 export async function extractLocationFromPhotos(
   files: File[],
   signal?: AbortSignal,
-): Promise<string | null> {
+): Promise<{ location: string; gps: GpsCoordinate } | null> {
   for (const file of files) {
     if (signal?.aborted) return null
     const gps = await readImageGps(file)
     if (!gps) continue
     const location = await reverseGeocode(gps.lat, gps.lon, signal)
-    if (location) return location
+    if (location) return { location, gps }
   }
   return null
+}
+
+export async function forwardGeocode(
+  query: string,
+  signal?: AbortSignal,
+): Promise<GpsCoordinate | null> {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1&accept-language=zh-CN`
+    const response = await fetch(url, { signal })
+    if (!response.ok) {
+      console.debug('[forwardGeocode] HTTP', response.status)
+      return null
+    }
+    const data = (await response.json()) as Array<{ lat: string; lon: string }>
+    if (!Array.isArray(data) || data.length === 0) return null
+    const lat = Number(data[0].lat)
+    const lon = Number(data[0].lon)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
+    return { lat, lon }
+  } catch (error) {
+    console.debug('[forwardGeocode] fetch error', error)
+    return null
+  }
 }

@@ -412,9 +412,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
 
   const autoFillLocationFromPhotos = async (files: File[]) => {
     if (formState.location.trim()) return
-    const location = await extractLocationFromPhotos(files)
-    if (!location) return
-    setFormState((prev) => (prev.location.trim() ? prev : { ...prev, location }))
+    const result = await extractLocationFromPhotos(files)
+    if (!result) return
+    setFormState((prev) => (prev.location.trim() ? prev : { ...prev, location: result.location }))
   }
 
   const handleAudioChange = (files: FileList | null) => {

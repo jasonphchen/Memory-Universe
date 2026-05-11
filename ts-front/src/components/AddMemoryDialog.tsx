@@ -3,12 +3,14 @@ import type { FormEvent, MouseEvent } from 'react'
 import {
   createLangchainService,
   extractLocationFromPhotos,
+  forwardGeocode,
   memoryService,
   REFINED_TEXT_PHOTO_PROMPT,
   STORY_TEXT_PHOTO_PROMPT,
 } from '../services'
-import type { LangchainAudioInput, LangchainImageInput } from '../services'
+import type { GpsCoordinate, LangchainAudioInput, LangchainImageInput } from '../services'
 import type { ApiError, MemoryContent } from '../types/api'
+import { LocationMap } from './LocationMap'
 
 type AddMemoryDialogProps = {
   isOpen: boolean
@@ -129,6 +131,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [isRefiningWithImages, setIsRefiningWithImages] = useState(false)
   const [isRefiningWithAudio, setIsRefiningWithAudio] = useState(false)
   const [contentBeforeRefine, setContentBeforeRefine] = useState<string | null>(null)
+  const [coordinates, setCoordinates] = useState<GpsCoordinate | null>(null)
+  const [lastGeocodedLocation, setLastGeocodedLocation] = useState<string>('')
   const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
   const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
   const isAudioLimitReached = audioFiles.length >= MAX_AUDIO_COUNT
@@ -147,6 +151,29 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       dialog.close()
     }
   }, [isOpen])
+
+  useEffect(() => {
+    const trimmed = formState.location.trim()
+    if (!trimmed) {
+      setCoordinates(null)
+      setLastGeocodedLocation('')
+      return
+    }
+    if (trimmed === lastGeocodedLocation) return
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      const gps = await forwardGeocode(trimmed, controller.signal)
+      if (controller.signal.aborted) return
+      setLastGeocodedLocation(trimmed)
+      if (gps) setCoordinates(gps)
+    }, 700)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [formState.location, lastGeocodedLocation])
 
   const handleBackdropClick = (event: MouseEvent<HTMLDialogElement>) => {
     if (event.target === event.currentTarget && !isBusy) {
@@ -177,6 +204,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
         content: formState.content.trim(),
         ...(formState.time ? { time: formState.time } : {}),
         ...(formState.location.trim() ? { location: formState.location.trim() } : {}),
+        ...(coordinates ? { latitude: coordinates.lat, longitude: coordinates.lon } : {}),
       })
 
       if (photoFiles.length > 0) {
@@ -190,6 +218,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setPhotoFiles([])
       setAudioFiles([])
       setContentBeforeRefine(null)
+      setCoordinates(null)
+      setLastGeocodedLocation('')
       onCreated?.(created)
       onClose()
     } catch (submitError) {
@@ -310,10 +340,11 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   }
 
   const autoFillLocationFromPhotos = async (files: File[]) => {
-    if (formState.location.trim()) return
-    const location = await extractLocationFromPhotos(files)
-    if (!location) return
-    setFormState((prev) => (prev.location.trim() ? prev : { ...prev, location }))
+    const result = await extractLocationFromPhotos(files)
+    if (!result) return
+    setCoordinates(result.gps)
+    setLastGeocodedLocation(result.location)
+    setFormState((prev) => (prev.location.trim() ? prev : { ...prev, location: result.location }))
   }
 
   const handleAudioChange = (files: FileList | null) => {
@@ -548,6 +579,13 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               disabled={isBusy || isAudioLimitReached}
             />
           </label>
+
+          {coordinates ? (
+            <label className="auth-label">
+              地图
+              <LocationMap latitude={coordinates.lat} longitude={coordinates.lon} />
+            </label>
+          ) : null}
 
           <div className="create-memory-actions">
             <button type="button" className="auth-toolbar-button" onClick={onClose} disabled={isBusy}>

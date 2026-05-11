@@ -64,6 +64,8 @@ export type MemoryContent = {
   content: string
   time?: string | null
   location?: string | null
+  latitude?: number | null
+  longitude?: number | null
   photos: MemoryPhoto[]
   audios: MemoryAudio[]
   createdAt: string
@@ -75,4 +77,6 @@ export type CreateOrUpdateMemoryPayload = {
   content: string
   time?: string
   location?: string
+  latitude?: number
+  longitude?: number
 }
