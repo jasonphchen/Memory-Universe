@@ -2,7 +2,7 @@ import type { ApiError } from '../types/api'
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
-  (import.meta.env.PROD ? 'http://43.132.123.72' : 'http://localhost:5000')
+  (import.meta.env.PROD ? 'https://api.jasonphchen.com' : 'http://localhost:5000')
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
