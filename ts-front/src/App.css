@@ -397,6 +397,74 @@
   }
 }
 
+.input-with-audio {
+  position: relative;
+  display: block;
+}
+
+.input-with-audio > .auth-input {
+  width: 100%;
+  padding-right: 40px;
+  box-sizing: border-box;
+}
+
+.audio-transcribe-button {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--switch-option-border);
+  background: var(--switch-option-bg);
+  color: var(--caption-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease,
+    background 120ms ease, color 120ms ease;
+}
+
+.input-with-audio--textarea > .audio-transcribe-button {
+  top: 6px;
+  transform: none;
+}
+
+.audio-transcribe-button:hover {
+  filter: brightness(1.1);
+}
+
+.audio-transcribe-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: translateY(-50%);
+  filter: none;
+}
+
+.input-with-audio--textarea > .audio-transcribe-button:disabled {
+  transform: none;
+}
+
+.audio-transcribe-button.recording {
+  background: #d9534f;
+  color: #ffffff;
+  border-color: transparent;
+  animation: audio-transcribe-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes audio-transcribe-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(217, 83, 79, 0);
+  }
+}
+
 .create-memory-date {
   color-scheme: dark;
 }

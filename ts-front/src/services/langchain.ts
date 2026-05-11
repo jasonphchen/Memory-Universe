@@ -529,6 +529,7 @@ const audioMimeTypes: Record<string, { mimeType: string; fileName: string }> = {
   '.mpga': { mimeType: 'audio/mpeg', fileName: 'audio.mp3' },
   '.wav': { mimeType: 'audio/wav', fileName: 'audio.wav' },
   '.m4a': { mimeType: 'audio/mp4', fileName: 'audio.m4a' },
+  '.mp4': { mimeType: 'audio/mp4', fileName: 'audio.mp4' },
   '.ogg': { mimeType: 'audio/ogg', fileName: 'audio.ogg' },
   '.webm': { mimeType: 'audio/webm', fileName: 'audio.webm' },
 }

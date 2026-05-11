@@ -9,6 +9,7 @@ import {
 } from '../services'
 import type { LangchainAudioInput, LangchainImageInput } from '../services'
 import type { ApiError, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
+import { AudioTranscribeButton } from './AudioTranscribeButton'
 
 type EditMemoryDialogProps = {
   memory: MemoryContent | null
@@ -453,14 +454,27 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
         <form className="create-memory-form" onSubmit={handleSubmit}>
           <label className="auth-label">
             标题
-            <input
-              className="auth-input"
-              type="text"
-              value={formState.title}
-              onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-              disabled={isBusy}
-              required
-            />
+            <div className="input-with-audio">
+              <input
+                className="auth-input"
+                type="text"
+                value={formState.title}
+                onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
+                disabled={isBusy}
+                required
+              />
+              <AudioTranscribeButton
+                disabled={isBusy}
+                ariaLabel="语音输入标题"
+                onError={setError}
+                onTranscribed={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    title: prev.title.trim() ? `${prev.title} ${text}` : text,
+                  }))
+                }
+              />
+            </div>
           </label>
 
           <label className="auth-label">
@@ -476,25 +490,51 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
 
           <label className="auth-label">
             地点
-            <input
-              className="auth-input"
-              type="text"
-              value={formState.location}
-              onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
-              disabled={isBusy}
-            />
+            <div className="input-with-audio">
+              <input
+                className="auth-input"
+                type="text"
+                value={formState.location}
+                onChange={(event) => setFormState((prev) => ({ ...prev, location: event.target.value }))}
+                disabled={isBusy}
+              />
+              <AudioTranscribeButton
+                disabled={isBusy}
+                ariaLabel="语音输入地点"
+                onError={setError}
+                onTranscribed={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    location: prev.location.trim() ? `${prev.location} ${text}` : text,
+                  }))
+                }
+              />
+            </div>
           </label>
 
           <label className="auth-label">
             内容
-            <textarea
-              className="auth-input create-memory-textarea"
-              value={formState.content}
-              onChange={(event) => setFormState((prev) => ({ ...prev, content: event.target.value }))}
-              disabled={isBusy}
-              rows={4}
-              required
-            />
+            <div className="input-with-audio input-with-audio--textarea">
+              <textarea
+                className="auth-input create-memory-textarea"
+                value={formState.content}
+                onChange={(event) => setFormState((prev) => ({ ...prev, content: event.target.value }))}
+                disabled={isBusy}
+                rows={4}
+                required
+              />
+              <AudioTranscribeButton
+                disabled={isBusy}
+                ariaLabel="语音输入内容"
+                onError={setError}
+                onTranscribed={(text) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    content: prev.content.trim() ? `${prev.content}\n${text}` : text,
+                  }))
+                }
+              />
+            </div>
             <div className="text-assistant-row">
               <button
                 type="button"
