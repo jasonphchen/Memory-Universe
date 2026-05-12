@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent, TouchEvent } from 'react'
+import { forwardGeocode } from '../services'
+import type { GpsCoordinate } from '../services'
 import type { MemoryContent } from '../types/api'
+import { LocationMap } from './LocationMap'
 
 type MemoryPanelProps = {
   selectedMemory: MemoryContent | null
@@ -26,6 +29,7 @@ export function MemoryPanel({
   const [previewScale, setPreviewScale] = useState(1)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [geocodedCoordinates, setGeocodedCoordinates] = useState<GpsCoordinate | null>(null)
   const pinchDistanceRef = useRef<number | null>(null)
 
   const clampScale = (value: number) => Math.min(4, Math.max(1, value))
@@ -50,6 +54,31 @@ export function MemoryPanel({
       dialog.close()
     }
   }, [selectedMemory, isLoading, errorMessage])
+
+  const hasStoredCoordinates =
+    typeof selectedMemory?.latitude === 'number' && typeof selectedMemory?.longitude === 'number'
+  const locationQuery = hasStoredCoordinates ? '' : selectedMemory?.location?.trim() ?? ''
+
+  useEffect(() => {
+    setGeocodedCoordinates(null)
+    if (!locationQuery) return
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      const gps = await forwardGeocode(locationQuery, controller.signal)
+      if (controller.signal.aborted) return
+      if (gps) setGeocodedCoordinates(gps)
+    }, 700)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [locationQuery])
+
+  const mapCoordinates: GpsCoordinate | null = hasStoredCoordinates
+    ? { lat: selectedMemory!.latitude as number, lon: selectedMemory!.longitude as number }
+    : geocodedCoordinates
 
   const handleDialogClick = (event: MouseEvent<HTMLDialogElement>) => {
     if (event.target === event.currentTarget) {
@@ -186,6 +215,12 @@ export function MemoryPanel({
                       </audio>
                     ))}
                   </div>
+                </div>
+              ) : null}
+
+              {mapCoordinates ? (
+                <div className="memory-media-block">
+                  <LocationMap latitude={mapCoordinates.lat} longitude={mapCoordinates.lon} />
                 </div>
               ) : null}
 
