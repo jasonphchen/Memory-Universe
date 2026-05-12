@@ -183,20 +183,17 @@ function App() {
 
       {/* <div className="universe-caption">点击一颗星球，查看它的故事。</div> */}
 
-      <div className="auth-toolbar">
-        {authUser ? (
-          <>
-            <span className="auth-user">Hi, {authUser.username}</span>
-            {/* <button type="button" className="auth-toolbar-button" onClick={handleLogout}>
-              退出
-            </button> */}
-          </>
-        ) : (
-          <button type="button" className="auth-toolbar-button" onClick={() => setAuthDialogOpen(true)}>
-            登录
-          </button>
-        )}
-      </div>
+      {authUser ? (
+        <span className="auth-toolbar auth-user">Hi, {authUser.username}</span>
+      ) : (
+        <button
+          type="button"
+          className="auth-toolbar auth-toolbar-button"
+          onClick={() => setAuthDialogOpen(true)}
+        >
+          登录
+        </button>
+      )}
 
       <ThemeSwitcher
         themes={universeThemes}
