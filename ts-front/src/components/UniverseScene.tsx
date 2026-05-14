@@ -45,6 +45,29 @@ function createFivePointStarGeometry(size: number): THREE.BufferGeometry {
   return geometry
 }
 
+function createGlowTexture(): THREE.CanvasTexture {
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')!
+  const gradient = context.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  )
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)')
+  gradient.addColorStop(0.18, 'rgba(255,255,255,0.55)')
+  gradient.addColorStop(0.5, 'rgba(255,255,255,0.18)')
+  gradient.addColorStop(1, 'rgba(255,255,255,0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, size, size)
+  return new THREE.CanvasTexture(canvas)
+}
+
 function createMemoryGeometry(theme: UniverseTheme, size: number): THREE.BufferGeometry {
   if (theme.memoryShape === 'fivePointStar') {
     return createFivePointStarGeometry(size)
@@ -263,11 +286,13 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
     scene.add(memoryGroup)
 
     const memoryMeshes: THREE.Mesh[] = []
-    const memorySize = theme.useImageTextures ? 0.92 : 0.37
+    const memorySize = theme.useImageTextures ? 1.85 : 0.78
+    const glowTexture = createGlowTexture()
     memories.forEach((memory, index) => {
       const geometry = createMemoryGeometry(theme, memorySize)
-      
+
       let material: THREE.MeshStandardMaterial
+      let glowColor: THREE.Color
       if (theme.useImageTextures && starTextures.length > 0 && textureIndices.length > 0) {
         const textureIndex = textureIndices[index % textureIndices.length]
         const selectedTexture = starTextures[textureIndex]
@@ -282,6 +307,7 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           alphaTest: 0.1,
           side: THREE.DoubleSide,
         })
+        glowColor = new THREE.Color(0xffe2a8)
       } else {
         const color = new THREE.Color().setHSL(
           theme.hueStart + Math.random() * theme.hueRange,
@@ -295,8 +321,9 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           metalness: 0.2,
           roughness: theme.memoryShape === 'sphere' ? 0.3 : 0.18,
         })
+        glowColor = color.clone().lerp(new THREE.Color(0xffffff), 0.35)
       }
-      
+
       const star = new THREE.Mesh(geometry, material)
       if (theme.memoryShape === 'fivePointStar') {
         star.rotation.z = Math.random() * Math.PI * 2
@@ -308,6 +335,20 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
         baseScale: 1,
         pulseOffset: index * 0.5,
       }
+
+      const glowMaterial = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: glowColor,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+      })
+      const glow = new THREE.Sprite(glowMaterial)
+      glow.scale.setScalar(memorySize * 4)
+      glow.renderOrder = -1
+      star.add(glow)
+
       memoryGroup.add(star)
       memoryMeshes.push(star)
     })
@@ -519,7 +560,13 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           if (mat.emissiveMap) mat.emissiveMap.dispose()
         }
         mat.dispose()
+        mesh.children.forEach((child) => {
+          if (child instanceof THREE.Sprite) {
+            ;(child.material as THREE.SpriteMaterial).dispose()
+          }
+        })
       })
+      glowTexture.dispose()
       starTextures.forEach((texture: THREE.Texture) => texture.dispose())
       starfieldGeometry.dispose()
       starfieldMaterial.dispose()

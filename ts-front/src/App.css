@@ -251,12 +251,17 @@
 }
 
 .memory-dialog {
-  width: min(460px, calc(100vw - 32px));
+  width: min(610px, calc(100vw - 32px));
   margin: auto;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--dialog-text);
+  scrollbar-width: none;
+}
+
+.memory-dialog::-webkit-scrollbar {
+  display: none;
 }
 
 .memory-dialog::backdrop {
@@ -265,7 +270,7 @@
 }
 
 .auth-dialog {
-  width: min(420px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   margin: auto;
   padding: 0;
   border: none;
@@ -279,12 +284,17 @@
 }
 
 .create-memory-dialog {
-  width: min(520px, calc(100vw - 32px));
+  width: min(620px, calc(100vw - 32px));
   margin: auto;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--dialog-text);
+  scrollbar-width: none;
+}
+
+.create-memory-dialog::-webkit-scrollbar {
+  display: none;
 }
 
 .create-memory-dialog::backdrop {
@@ -299,6 +309,11 @@
   background: var(--dialog-bg);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(14px);
+  scrollbar-width: none;
+}
+
+.create-memory-dialog-content::-webkit-scrollbar {
+  display: none;
 }
 
 .create-memory-dialog-content h2 {
@@ -644,7 +659,7 @@
   background: rgba(12, 20, 48, 0.6);
   color: var(--caption-text);
   outline: none;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .auth-input:focus {
@@ -675,29 +690,11 @@
   background: var(--dialog-bg);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(14px);
-  max-height: min(78vh, 760px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(180, 202, 255, 0.5) rgba(9, 15, 36, 0.28);
+  scrollbar-width: none;
 }
 
 .memory-dialog-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.memory-dialog-content::-webkit-scrollbar-track {
-  background: rgba(9, 15, 36, 0.28);
-  border-radius: 999px;
-}
-
-.memory-dialog-content::-webkit-scrollbar-thumb {
-  background: rgba(180, 202, 255, 0.5);
-  border: 2px solid rgba(9, 15, 36, 0.28);
-  border-radius: 999px;
-}
-
-.memory-dialog-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(197, 216, 255, 0.65);
+  display: none;
 }
 
 .memory-dialog-content h2 {
