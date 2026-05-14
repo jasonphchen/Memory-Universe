@@ -143,6 +143,43 @@
   filter: brightness(1.05);
 }
 
+.font-mode-switcher {
+  position: absolute;
+  left: 18px;
+  bottom: 22px;
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--switch-border);
+  border-radius: 12px;
+  background: var(--switch-bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.font-mode-option {
+  border: 1px solid var(--switch-option-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: var(--switch-option-bg);
+  color: var(--caption-text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: transform 130ms ease, border-color 130ms ease, background-color 130ms ease, color 130ms ease;
+}
+
+.font-mode-option:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.font-mode-option.is-active {
+  background: var(--switch-option-active-bg);
+  color: var(--switch-option-active-text);
+  border-color: var(--switch-option-active-bg);
+}
+
 .add-memory-fab {
   position: absolute;
   right: 22px;
@@ -892,6 +929,17 @@
     bottom: 14px;
     width: 50px;
     height: 50px;
+  }
+
+  .font-mode-switcher {
+    left: 12px;
+    bottom: 14px;
+    padding: 4px;
+  }
+
+  .font-mode-option {
+    padding: 5px 10px;
+    font-size: 0.78rem;
   }
 
   .universe-caption {

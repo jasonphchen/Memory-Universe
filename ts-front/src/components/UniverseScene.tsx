@@ -1,7 +1,13 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { MemoryNode } from './memory.types'
 import type { UniverseTheme } from './universeThemes'
+
+type FontMode = 'standard' | 'senior'
+
+const FONT_MODE_STORAGE_KEY = 'memory_universe_font_mode'
+const STANDARD_ROOT_FONT_SIZE = 18
+const SENIOR_ROOT_FONT_SIZE = 21
 
 const starImages = import.meta.glob('../assets/stars/*.{png,jpg,jpeg,webp}', { eager: true, as: 'url' })
 const starImageUrls = Object.values(starImages) as string[]
@@ -206,6 +212,21 @@ function generateDistributedTextureIndices(
 
 export function UniverseScene({ memories, onSelectMemory, theme }: UniverseSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
+  const [fontMode, setFontMode] = useState<FontMode>(() => {
+    if (typeof window === 'undefined') return 'standard'
+    const saved = window.localStorage.getItem(FONT_MODE_STORAGE_KEY)
+    return saved === 'senior' ? 'senior' : 'standard'
+  })
+
+  useEffect(() => {
+    const size = fontMode === 'senior' ? SENIOR_ROOT_FONT_SIZE : STANDARD_ROOT_FONT_SIZE
+    const previous = document.documentElement.style.fontSize
+    document.documentElement.style.fontSize = `${size}px`
+    window.localStorage.setItem(FONT_MODE_STORAGE_KEY, fontMode)
+    return () => {
+      document.documentElement.style.fontSize = previous
+    }
+  }, [fontMode])
   
   const starTextures = useMemo(() => {
     if (!theme.useImageTextures || starImageUrls.length === 0) return []
@@ -575,5 +596,27 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
     }
   }, [memories, onSelectMemory, theme, starTextures, textureIndices])
 
-  return <div ref={mountRef} className="universe-canvas" />
+  return (
+    <>
+      <div ref={mountRef} className="universe-canvas" />
+      <div className="font-mode-switcher" role="group" aria-label="字体大小">
+        <button
+          type="button"
+          className={`font-mode-option${fontMode === 'standard' ? ' is-active' : ''}`}
+          aria-pressed={fontMode === 'standard'}
+          onClick={() => setFontMode('standard')}
+        >
+          标准版
+        </button>
+        <button
+          type="button"
+          className={`font-mode-option${fontMode === 'senior' ? ' is-active' : ''}`}
+          aria-pressed={fontMode === 'senior'}
+          onClick={() => setFontMode('senior')}
+        >
+          老年版
+        </button>
+      </div>
+    </>
+  )
 }
