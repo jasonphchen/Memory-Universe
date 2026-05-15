@@ -1,7 +1,13 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { MemoryNode } from './memory.types'
 import type { UniverseTheme } from './universeThemes'
+
+type FontMode = 'standard' | 'senior'
+
+const FONT_MODE_STORAGE_KEY = 'memory_universe_font_mode'
+const STANDARD_ROOT_FONT_SIZE = 18
+const SENIOR_ROOT_FONT_SIZE = 21
 
 const starImages = import.meta.glob('../assets/stars/*.{png,jpg,jpeg,webp}', { eager: true, as: 'url' })
 const starImageUrls = Object.values(starImages) as string[]
@@ -43,6 +49,29 @@ function createFivePointStarGeometry(size: number): THREE.BufferGeometry {
   })
   geometry.center()
   return geometry
+}
+
+function createGlowTexture(): THREE.CanvasTexture {
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')!
+  const gradient = context.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  )
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)')
+  gradient.addColorStop(0.18, 'rgba(255,255,255,0.55)')
+  gradient.addColorStop(0.5, 'rgba(255,255,255,0.18)')
+  gradient.addColorStop(1, 'rgba(255,255,255,0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, size, size)
+  return new THREE.CanvasTexture(canvas)
 }
 
 function createMemoryGeometry(theme: UniverseTheme, size: number): THREE.BufferGeometry {
@@ -183,6 +212,21 @@ function generateDistributedTextureIndices(
 
 export function UniverseScene({ memories, onSelectMemory, theme }: UniverseSceneProps) {
   const mountRef = useRef<HTMLDivElement | null>(null)
+  const [fontMode, setFontMode] = useState<FontMode>(() => {
+    if (typeof window === 'undefined') return 'standard'
+    const saved = window.localStorage.getItem(FONT_MODE_STORAGE_KEY)
+    return saved === 'senior' ? 'senior' : 'standard'
+  })
+
+  useEffect(() => {
+    const size = fontMode === 'senior' ? SENIOR_ROOT_FONT_SIZE : STANDARD_ROOT_FONT_SIZE
+    const previous = document.documentElement.style.fontSize
+    document.documentElement.style.fontSize = `${size}px`
+    window.localStorage.setItem(FONT_MODE_STORAGE_KEY, fontMode)
+    return () => {
+      document.documentElement.style.fontSize = previous
+    }
+  }, [fontMode])
   
   const starTextures = useMemo(() => {
     if (!theme.useImageTextures || starImageUrls.length === 0) return []
@@ -263,11 +307,13 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
     scene.add(memoryGroup)
 
     const memoryMeshes: THREE.Mesh[] = []
-    const memorySize = theme.useImageTextures ? 0.92 : 0.37
+    const memorySize = theme.useImageTextures ? 1.85 : 0.78
+    const glowTexture = createGlowTexture()
     memories.forEach((memory, index) => {
       const geometry = createMemoryGeometry(theme, memorySize)
-      
+
       let material: THREE.MeshStandardMaterial
+      let glowColor: THREE.Color
       if (theme.useImageTextures && starTextures.length > 0 && textureIndices.length > 0) {
         const textureIndex = textureIndices[index % textureIndices.length]
         const selectedTexture = starTextures[textureIndex]
@@ -282,6 +328,7 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           alphaTest: 0.1,
           side: THREE.DoubleSide,
         })
+        glowColor = new THREE.Color(0xffe2a8)
       } else {
         const color = new THREE.Color().setHSL(
           theme.hueStart + Math.random() * theme.hueRange,
@@ -295,8 +342,9 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           metalness: 0.2,
           roughness: theme.memoryShape === 'sphere' ? 0.3 : 0.18,
         })
+        glowColor = color.clone().lerp(new THREE.Color(0xffffff), 0.35)
       }
-      
+
       const star = new THREE.Mesh(geometry, material)
       if (theme.memoryShape === 'fivePointStar') {
         star.rotation.z = Math.random() * Math.PI * 2
@@ -308,6 +356,20 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
         baseScale: 1,
         pulseOffset: index * 0.5,
       }
+
+      const glowMaterial = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: glowColor,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+      })
+      const glow = new THREE.Sprite(glowMaterial)
+      glow.scale.setScalar(memorySize * 4)
+      glow.renderOrder = -1
+      star.add(glow)
+
       memoryGroup.add(star)
       memoryMeshes.push(star)
     })
@@ -519,7 +581,13 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
           if (mat.emissiveMap) mat.emissiveMap.dispose()
         }
         mat.dispose()
+        mesh.children.forEach((child) => {
+          if (child instanceof THREE.Sprite) {
+            ;(child.material as THREE.SpriteMaterial).dispose()
+          }
+        })
       })
+      glowTexture.dispose()
       starTextures.forEach((texture: THREE.Texture) => texture.dispose())
       starfieldGeometry.dispose()
       starfieldMaterial.dispose()
@@ -528,5 +596,27 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
     }
   }, [memories, onSelectMemory, theme, starTextures, textureIndices])
 
-  return <div ref={mountRef} className="universe-canvas" />
+  return (
+    <>
+      <div ref={mountRef} className="universe-canvas" />
+      <div className="font-mode-switcher" role="group" aria-label="字体大小">
+        <button
+          type="button"
+          className={`font-mode-option${fontMode === 'standard' ? ' is-active' : ''}`}
+          aria-pressed={fontMode === 'standard'}
+          onClick={() => setFontMode('standard')}
+        >
+          标准版
+        </button>
+        <button
+          type="button"
+          className={`font-mode-option${fontMode === 'senior' ? ' is-active' : ''}`}
+          aria-pressed={fontMode === 'senior'}
+          onClick={() => setFontMode('senior')}
+        >
+          老年版
+        </button>
+      </div>
+    </>
+  )
 }

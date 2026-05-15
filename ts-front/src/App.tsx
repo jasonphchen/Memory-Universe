@@ -184,7 +184,7 @@ function App() {
       {/* <div className="universe-caption">点击一颗星球，查看它的故事。</div> */}
 
       {authUser ? (
-        <span className="auth-toolbar auth-user">Hi, {authUser.username}</span>
+        <span className="auth-toolbar auth-user">您好, {authUser.username}</span>
       ) : (
         <button
           type="button"
