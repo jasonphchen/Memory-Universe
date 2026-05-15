@@ -27,6 +27,8 @@ export type OpenAiCredentials = {
   ApiKey?: string
   AudioApiKey?: string
   AudioAPiKey?: string
+  ElevenLabsApiKey?: string
+  elevenLabsApiKey?: string
 }
 
 export type LangchainChatRequest = {

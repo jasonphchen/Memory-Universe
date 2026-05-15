@@ -137,7 +137,8 @@ public class ContentController : ControllerBase
             APIBaseUrl = _configuration["OpenAI:APIBaseUrl"],
             APIAudioUrl = _configuration["OpenAI:APIAudioUrl"],
             ApiKey = _configuration["OpenAI:ApiKey"],
-            AudioAPiKey = _configuration["OpenAI:AudioAPiKey"]
+            AudioAPiKey = _configuration["OpenAI:AudioAPiKey"],
+            ElevenLabsApiKey = _configuration["ElevenLabs:ApiKey"]
         });
     }
 

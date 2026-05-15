@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent, TouchEvent } from 'react'
-import { forwardGeocode } from '../services'
+import { forwardGeocode, memoryService } from '../services'
 import type { GpsCoordinate } from '../services'
 import type { MemoryContent } from '../types/api'
 import { LocationMap } from './LocationMap'
+
+const ELEVENLABS_VOICE_ID = 'YdgyLJpK2cRMqNNfmRoK'
+const ELEVENLABS_OUTPUT_FORMAT = 'mp3_44100_128'
+const ELEVENLABS_MODEL_ID = 'eleven_multilingual_v2'
 
 type MemoryPanelProps = {
   selectedMemory: MemoryContent | null
@@ -31,6 +35,10 @@ export function MemoryPanel({
   const [isDeleting, setIsDeleting] = useState(false)
   const [geocodedCoordinates, setGeocodedCoordinates] = useState<GpsCoordinate | null>(null)
   const pinchDistanceRef = useRef<number | null>(null)
+  const [elevenLabsApiKey, setElevenLabsApiKey] = useState<string>('')
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
+  const ttsObjectUrlRef = useRef<string | null>(null)
 
   const clampScale = (value: number) => Math.min(4, Math.max(1, value))
 
@@ -54,6 +62,92 @@ export function MemoryPanel({
       dialog.close()
     }
   }, [selectedMemory, isLoading, errorMessage])
+
+  useEffect(() => {
+    if (!selectedMemory) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const credentials = await memoryService.getOpenAiCredentials()
+        if (cancelled) return
+        const key = credentials.ElevenLabsApiKey ?? credentials.elevenLabsApiKey ?? ''
+        setElevenLabsApiKey(key)
+      } catch {
+        if (!cancelled) setElevenLabsApiKey('')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedMemory])
+
+  const stopTts = () => {
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause()
+      ttsAudioRef.current.src = ''
+      ttsAudioRef.current = null
+    }
+    if (ttsObjectUrlRef.current) {
+      URL.revokeObjectURL(ttsObjectUrlRef.current)
+      ttsObjectUrlRef.current = null
+    }
+    setIsSpeaking(false)
+  }
+
+  useEffect(() => {
+    stopTts()
+  }, [selectedMemory?.id])
+
+  useEffect(() => {
+    return () => {
+      stopTts()
+    }
+  }, [])
+
+  const handleSpeakContent = async () => {
+    const text = selectedMemory?.content?.trim()
+    if (!text || !elevenLabsApiKey) return
+
+    if (isSpeaking) {
+      stopTts()
+      return
+    }
+
+    try {
+      setIsSpeaking(true)
+      const response = await fetch(
+        `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}?output_format=${ELEVENLABS_OUTPUT_FORMAT}`,
+        {
+          method: 'POST',
+          headers: {
+            'xi-api-key': elevenLabsApiKey,
+            'Content-Type': 'application/json',
+            Accept: 'audio/mpeg',
+          },
+          body: JSON.stringify({
+            text,
+            model_id: ELEVENLABS_MODEL_ID,
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error(`ElevenLabs TTS failed: ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      ttsObjectUrlRef.current = url
+
+      const audio = new Audio(url)
+      ttsAudioRef.current = audio
+      audio.onended = () => stopTts()
+      audio.onerror = () => stopTts()
+      await audio.play()
+    } catch {
+      stopTts()
+    }
+  }
 
   const hasStoredCoordinates =
     typeof selectedMemory?.latitude === 'number' && typeof selectedMemory?.longitude === 'number'
@@ -184,7 +278,20 @@ export function MemoryPanel({
             <>
               <h2>{selectedMemory.title}</h2>
               {memoryMeta ? <p className="memory-meta">{memoryMeta}</p> : null}
-              <p>{selectedMemory.content}</p>
+              <div className="memory-content-block">
+                <p className="memory-content-text">{selectedMemory.content}</p>
+                {selectedMemory.content?.trim() && elevenLabsApiKey ? (
+                  <button
+                    type="button"
+                    className="text-assistant-icon-button memory-tts-button"
+                    onClick={handleSpeakContent}
+                    aria-label={isSpeaking ? '停止朗读' : '朗读内容'}
+                    title={isSpeaking ? '停止朗读' : '朗读内容'}
+                  >
+                    {isSpeaking ? '⏸' : '🔊'}
+                  </button>
+                ) : null}
+              </div>
 
               {hasPhotos ? (
                 <div className="memory-media-block">

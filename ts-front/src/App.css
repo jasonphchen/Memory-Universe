@@ -718,6 +718,23 @@
   line-height: 1.45;
 }
 
+.memory-content-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.memory-content-block .memory-content-text {
+  flex: 1;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.memory-tts-button {
+  flex-shrink: 0;
+}
+
 .memory-loading,
 .memory-error {
   margin: 10px 0 4px;
