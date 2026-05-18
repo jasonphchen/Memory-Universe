@@ -13,6 +13,7 @@ import {
   type UniverseTheme,
   type UniverseThemeId,
 } from './components/universeThemes'
+import { useI18n } from './i18n/I18nContext'
 import './App.css'
 
 type AuthUser = {
@@ -26,6 +27,7 @@ const AUTH_USER_KEY = 'memory_universe_user'
 const LEGACY_ACCESS_TOKEN_KEY = 'memory_universe_access_token'
 
 function App() {
+  const { t } = useI18n()
   const [memories, setMemories] = useState<MemoryNode[]>([])
   const [selectedMemory, setSelectedMemory] = useState<MemoryContent | null>(null)
   const [isMemoryLoading, setIsMemoryLoading] = useState(false)
@@ -133,7 +135,7 @@ function App() {
         audios: resolvedAudios,
       })
     } catch {
-      setMemoryErrorMessage('记忆加载失败，请稍后重试。')
+      setMemoryErrorMessage(t('memoryLoadFailed'))
     } finally {
       setIsMemoryLoading(false)
     }
@@ -161,7 +163,7 @@ function App() {
       await loadMemoryList()
       handleCloseMemoryPanel()
     } catch {
-      setMemoryErrorMessage('删除失败，请稍后重试。')
+      setMemoryErrorMessage(t('deleteFailed'))
     }
   }
 
@@ -184,14 +186,14 @@ function App() {
       {/* <div className="universe-caption">点击一颗星球，查看它的故事。</div> */}
 
       {authUser ? (
-        <span className="auth-toolbar auth-user">您好, {authUser.username}</span>
+        <span className="auth-toolbar auth-user">{t('greeting', { name: authUser.username })}</span>
       ) : (
         <button
           type="button"
           className="auth-toolbar auth-toolbar-button"
           onClick={() => setAuthDialogOpen(true)}
         >
-          登录
+          {t('login')}
         </button>
       )}
 
@@ -205,7 +207,7 @@ function App() {
         <button
           type="button"
           className="add-memory-fab"
-          aria-label="新增记忆"
+          aria-label={t('addMemoryAria')}
           onClick={() => setAddMemoryDialogOpen(true)}
         >
           +

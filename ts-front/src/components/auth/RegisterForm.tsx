@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 type RegisterFormProps = {
   isLoading: boolean
@@ -7,6 +8,7 @@ type RegisterFormProps = {
 }
 
 export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
+  const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [secret, setSecret] = useState('')
@@ -19,7 +21,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
       <label className="auth-label">
-        用户名
+        {t('username')}
         <input
           className="auth-input"
           value={username}
@@ -30,7 +32,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
       </label>
 
       <label className="auth-label">
-        密码
+        {t('password')}
         <input
           className="auth-input"
           type="password"
@@ -42,7 +44,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
       </label>
 
       <label className="auth-label">
-        注册码
+        {t('registrationCode')}
         <input
           className="auth-input"
           type="password"
@@ -54,7 +56,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
       </label>
 
       <button className="auth-submit" type="submit" disabled={isLoading}>
-        {isLoading ? '注册中...' : '注册'}
+        {isLoading ? t('registering') : t('register')}
       </button>
     </form>
   )

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createLangchainService, memoryService } from '../services'
 import type { ApiError } from '../types/api'
+import { useI18n } from '../i18n/I18nContext'
 
 type AudioTranscribeButtonProps = {
   onTranscribed: (text: string) => void
@@ -40,6 +41,7 @@ export function AudioTranscribeButton({
   disabled,
   ariaLabel,
 }: AudioTranscribeButtonProps) {
+  const { t } = useI18n()
   const mountedRef = useRef(true)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -74,7 +76,7 @@ export function AudioTranscribeButton({
     chunksRef.current = []
     if (chunks.length === 0) {
       if (mountedRef.current) setIsTranscribing(false)
-      onError?.('未捕获到音频数据，请重试（录音时间可能过短）。')
+      onError?.(t('noAudioCaptured'))
       return
     }
 
@@ -85,7 +87,7 @@ export function AudioTranscribeButton({
 
     if (blob.size === 0) {
       if (mountedRef.current) setIsTranscribing(false)
-      onError?.('音频内容为空，请重试。')
+      onError?.(t('audioEmpty'))
       return
     }
 
@@ -105,11 +107,11 @@ export function AudioTranscribeButton({
       if (trimmed) {
         onTranscribed(trimmed)
       } else {
-        onError?.('未能识别到语音内容，请重试。')
+        onError?.(t('noSpeechRecognized'))
       }
     } catch (error) {
       if (!mountedRef.current) return
-      onError?.(getErrorMessage(error, '语音识别失败，请稍后重试。'))
+      onError?.(getErrorMessage(error, t('speechRecognitionFailed')))
     } finally {
       if (mountedRef.current) {
         setIsTranscribing(false)
@@ -123,7 +125,7 @@ export function AudioTranscribeButton({
       !navigator.mediaDevices?.getUserMedia ||
       typeof MediaRecorder === 'undefined'
     ) {
-      onError?.('当前浏览器不支持录音功能。')
+      onError?.(t('recordingNotSupported'))
       return
     }
 
@@ -147,7 +149,7 @@ export function AudioTranscribeButton({
         void transcribeChunks()
       }
       recorder.onerror = () => {
-        onError?.('录音过程中出现错误，请重试。')
+        onError?.(t('recordingError'))
       }
 
       mediaRecorderRef.current = recorder
@@ -155,7 +157,7 @@ export function AudioTranscribeButton({
       setIsRecording(true)
     } catch (error) {
       releaseStream()
-      onError?.(getErrorMessage(error, '无法访问麦克风，请检查权限设置。'))
+      onError?.(getErrorMessage(error, t('microphoneAccessFailed')))
     }
   }
 
@@ -185,10 +187,10 @@ export function AudioTranscribeButton({
   }
 
   const label = isRecording
-    ? '停止录音'
+    ? t('stopRecording')
     : isTranscribing
-      ? '识别中'
-      : ariaLabel || '语音输入'
+      ? t('recognizing')
+      : ariaLabel || t('voiceInput')
 
   const stateClass = isRecording ? ' recording' : isTranscribing ? ' transcribing' : ''
 

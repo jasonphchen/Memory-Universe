@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { UniverseTheme, UniverseThemeId } from './universeThemes'
+import { useI18n } from '../i18n/I18nContext'
+import type { TranslationKey } from '../i18n/translations'
 
 type ThemeSwitcherProps = {
   themes: UniverseTheme[]
@@ -7,11 +9,18 @@ type ThemeSwitcherProps = {
   onSelectTheme: (themeId: UniverseThemeId) => void
 }
 
+const THEME_LABEL_KEYS: Record<UniverseThemeId, TranslationKey> = {
+  nebula: 'themeNebula',
+  spiral: 'themeSpiral',
+  galaxy: 'themeGalaxy',
+}
+
 export function ThemeSwitcher({
   themes,
   selectedThemeId,
   onSelectTheme,
 }: ThemeSwitcherProps) {
+  const { t } = useI18n()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const selectedTheme = useMemo(
@@ -36,11 +45,13 @@ export function ThemeSwitcher({
   return (
     <div ref={wrapperRef} className="theme-switcher">
       <div className="theme-switcher-header">
-        <span className="theme-switcher-current">{selectedTheme?.label ?? '主题'}</span>
+        <span className="theme-switcher-current">
+          {selectedTheme ? t(THEME_LABEL_KEYS[selectedTheme.id]) : t('themeFallback')}
+        </span>
         <button
           type="button"
           className="theme-switcher-toggle"
-          aria-label="切换主题"
+          aria-label={t('switchTheme')}
           onClick={() => setIsOpen((prev) => !prev)}
         >
           {isOpen ? '✕' : '🎨'}
@@ -59,7 +70,7 @@ export function ThemeSwitcher({
                 setIsOpen(false)
               }}
             >
-              {theme.label}
+              {t(THEME_LABEL_KEYS[theme.id])}
             </button>
           ))}
           </div>

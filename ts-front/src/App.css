@@ -148,6 +148,7 @@
   left: 18px;
   bottom: 22px;
   display: inline-flex;
+  align-items: center;
   gap: 6px;
   padding: 6px;
   border: 1px solid var(--switch-border);
@@ -178,6 +179,19 @@
   background: var(--switch-option-active-bg);
   color: var(--switch-option-active-text);
   border-color: var(--switch-option-active-bg);
+}
+
+.switch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.switch-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 22px;
+  background: var(--switch-option-border);
 }
 
 .add-memory-fab {
@@ -952,6 +966,19 @@
     left: 12px;
     bottom: 14px;
     padding: 4px;
+    /* Stack vertically with the language switch on top of the font-size switch. */
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .switch-group {
+    justify-content: center;
+  }
+
+  .switch-divider {
+    width: auto;
+    min-height: 0;
+    height: 1px;
   }
 
   .font-mode-option {

@@ -4,6 +4,7 @@ import { forwardGeocode, memoryService } from '../services'
 import type { GpsCoordinate } from '../services'
 import type { MemoryContent } from '../types/api'
 import { LocationMap } from './LocationMap'
+import { useI18n } from '../i18n/I18nContext'
 
 const ELEVENLABS_VOICE_ID = 'YdgyLJpK2cRMqNNfmRoK'
 const ELEVENLABS_OUTPUT_FORMAT = 'mp3_44100_128'
@@ -28,6 +29,7 @@ export function MemoryPanel({
   onDelete,
   onClose,
 }: MemoryPanelProps) {
+  const { t } = useI18n()
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
   const [previewScale, setPreviewScale] = useState(1)
@@ -266,12 +268,12 @@ export function MemoryPanel({
             type="button"
             className="memory-dialog-close"
             onClick={onClose}
-            aria-label="关闭弹窗"
+            aria-label={t('closeDialog')}
           >
             ×
           </button>
           {isLoading ? (
-            <p className="memory-loading">加载中...</p>
+            <p className="memory-loading">{t('loading')}</p>
           ) : errorMessage ? (
             <p className="memory-error">{errorMessage}</p>
           ) : selectedMemory ? (
@@ -285,8 +287,8 @@ export function MemoryPanel({
                     type="button"
                     className="text-assistant-icon-button memory-tts-button"
                     onClick={handleSpeakContent}
-                    aria-label={isSpeaking ? '停止朗读' : '朗读内容'}
-                    title={isSpeaking ? '停止朗读' : '朗读内容'}
+                    aria-label={isSpeaking ? t('stopReading') : t('readContent')}
+                    title={isSpeaking ? t('stopReading') : t('readContent')}
                   >
                     {isSpeaking ? '⏸' : '🔊'}
                   </button>
@@ -303,7 +305,7 @@ export function MemoryPanel({
                         type="button"
                         className="memory-photo-button"
                         onClick={() => openPhotoPreview(photo.url)}
-                        aria-label="查看大图"
+                        aria-label={t('viewLargeImage')}
                       >
                         <img src={photo.url} alt={selectedMemory.title} className="memory-photo" />
                       </button>
@@ -318,7 +320,7 @@ export function MemoryPanel({
                   <div className="memory-audio-list">
                     {selectedMemory.audios.map((audio) => (
                       <audio key={audio.id} controls src={audio.url} className="memory-audio">
-                        您的浏览器不支持音频播放。
+                        {t('audioNotSupported')}
                       </audio>
                     ))}
                   </div>
@@ -337,17 +339,17 @@ export function MemoryPanel({
                     type="button"
                     className="auth-toolbar-button"
                     onClick={() => selectedMemory && onEdit?.(selectedMemory)}
-                    aria-label="编辑记忆"
+                    aria-label={t('editMemoryAria')}
                   >
-                    编辑
+                    {t('edit')}
                   </button>
                   <button
                     type="button"
                     className="auth-toolbar-button memory-action-danger"
                     onClick={() => setIsDeleteConfirmOpen(true)}
-                    aria-label="删除记忆"
+                    aria-label={t('deleteMemoryAria')}
                   >
-                    删除
+                    {t('delete')}
                   </button>
                 </div>
               ) : null}
@@ -359,7 +361,7 @@ export function MemoryPanel({
         <div className="memory-photo-lightbox" onClick={closePhotoPreview}>
           <img
             src={previewPhotoUrl}
-            alt="大图预览"
+            alt={t('imagePreview')}
             className="memory-photo-lightbox-image"
             style={{ transform: `scale(${previewScale})` }}
             onClick={(event) => event.stopPropagation()}
@@ -372,7 +374,7 @@ export function MemoryPanel({
       {isDeleteConfirmOpen ? (
         <div className="memory-confirm-overlay" onClick={() => !isDeleting && setIsDeleteConfirmOpen(false)}>
           <div className="memory-confirm-dialog" onClick={(event) => event.stopPropagation()}>
-            <p>确定删除这条记忆吗？</p>
+            <p>{t('confirmDeleteMemory')}</p>
             <div className="memory-confirm-actions">
               <button
                 type="button"
@@ -380,10 +382,10 @@ export function MemoryPanel({
                 onClick={() => setIsDeleteConfirmOpen(false)}
                 disabled={isDeleting}
               >
-                取消
+                {t('cancel')}
               </button>
               <button type="button" className="auth-submit" onClick={handleDeleteConfirm} disabled={isDeleting}>
-                {isDeleting ? '删除中...' : '确认删除'}
+                {isDeleting ? t('deleting') : t('confirmDelete')}
               </button>
             </div>
           </div>

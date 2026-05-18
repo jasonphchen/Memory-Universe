@@ -4,6 +4,7 @@ import { authService } from '../../services'
 import type { ApiError, AuthResponse } from '../../types/api'
 import { LoginForm } from './LoginForm'
 import { RegisterForm } from './RegisterForm'
+import { useI18n } from '../../i18n/I18nContext'
 
 type AuthDialogProps = {
   isOpen: boolean
@@ -13,14 +14,15 @@ type AuthDialogProps = {
 
 type AuthMode = 'login' | 'register'
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'object' && error !== null && 'message' in error) {
     return String((error as ApiError).message)
   }
-  return '认证失败，请稍后重试。'
+  return fallback
 }
 
 export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) {
+  const { t } = useI18n()
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +50,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
 
   const submitLogin = async (username: string, password: string) => {
     if (!username || !password) {
-      setError('请输入用户名和密码。')
+      setError(t('enterUsernamePassword'))
       return
     }
 
@@ -59,7 +61,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
       onAuthSuccess(response)
       onClose()
     } catch (authError) {
-      setError(getErrorMessage(authError))
+      setError(getErrorMessage(authError, t('authFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -67,7 +69,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
 
   const submitRegister = async (username: string, password: string, secret: string) => {
     if (!username || !password || !secret) {
-      setError('请输入用户名、密码和注册码。')
+      setError(t('enterUsernamePasswordSecret'))
       return
     }
 
@@ -78,7 +80,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
       onAuthSuccess(response)
       onClose()
     } catch (authError) {
-      setError(getErrorMessage(authError))
+      setError(getErrorMessage(authError, t('authFailed')))
     } finally {
       setIsLoading(false)
     }
@@ -96,7 +98,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
               setError('')
             }}
           >
-            登录
+            {t('login')}
           </button>
           <button
             type="button"
@@ -106,7 +108,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
               setError('')
             }}
           >
-            注册
+            {t('register')}
           </button>
         </div>
 

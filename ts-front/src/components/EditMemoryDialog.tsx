@@ -10,6 +10,7 @@ import {
 import type { LangchainAudioInput, LangchainImageInput } from '../services'
 import type { ApiError, MemoryAudio, MemoryContent, MemoryPhoto } from '../types/api'
 import { AudioTranscribeButton } from './AudioTranscribeButton'
+import { useI18n } from '../i18n/I18nContext'
 
 type EditMemoryDialogProps = {
   memory: MemoryContent | null
@@ -63,11 +64,11 @@ function toDateInputValue(value: string): string {
   return `${year}-${month}-${day}`
 }
 
-function getFileNameFromUrl(url: string): string {
-  if (!url) return '未命名文件'
+function getFileNameFromUrl(url: string, fallback: string): string {
+  if (!url) return fallback
   const cleaned = url.split('?')[0]
   const fileName = cleaned.split('/').pop()
-  if (!fileName) return '未命名文件'
+  if (!fileName) return fallback
   try {
     return decodeURIComponent(fileName)
   } catch {
@@ -124,10 +125,13 @@ async function fileToChatbotAudio(file: File): Promise<LangchainAudioInput> {
   }
 }
 
-async function photoToChatbotImage(photo: MemoryPhoto): Promise<LangchainImageInput> {
+async function photoToChatbotImage(
+  photo: MemoryPhoto,
+  errorMessage: string,
+): Promise<LangchainImageInput> {
   const response = await fetch(memoryService.toAbsoluteMediaUrl(photo.url))
   if (!response.ok) {
-    throw new Error('读取已有图片失败。')
+    throw new Error(errorMessage)
   }
 
   const blob = await response.blob()
@@ -137,10 +141,13 @@ async function photoToChatbotImage(photo: MemoryPhoto): Promise<LangchainImageIn
   }
 }
 
-async function audioToChatbotAudio(audio: MemoryAudio): Promise<LangchainAudioInput> {
+async function audioToChatbotAudio(
+  audio: MemoryAudio,
+  errorMessage: string,
+): Promise<LangchainAudioInput> {
   const response = await fetch(memoryService.toAbsoluteMediaUrl(audio.url))
   if (!response.ok) {
-    throw new Error('读取已有音频失败。')
+    throw new Error(errorMessage)
   }
 
   const blob = await response.blob()
@@ -173,6 +180,7 @@ function buildStoryAssistantMessage(formState: FormState): string {
 }
 
 export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemoryDialogProps) {
+  const { t } = useI18n()
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [formState, setFormState] = useState<FormState>({
     title: '',
@@ -251,7 +259,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     if (!memory) return
 
     if (!formState.title.trim() || !formState.content.trim()) {
-      setError('请填写标题和内容。')
+      setError(t('fillTitleContent'))
       return
     }
 
@@ -285,7 +293,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       onSaved?.(memory.id)
       onClose()
     } catch (submitError) {
-      setError(getErrorMessage(submitError, '更新失败，请稍后重试。'))
+      setError(getErrorMessage(submitError, t('updateFailed')))
     } finally {
       setIsSubmitting(false)
     }
@@ -294,7 +302,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const handleRefineContent = async () => {
     const message = buildStoryAssistantMessage(formState)
     if (!message && totalPhotoCount === 0) {
-      setError('请先输入文字或选择至少一张图片。')
+      setError(t('enterTextOrImage'))
       return
     }
 
@@ -304,7 +312,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setIsRefining(true)
       setError('')
       const images = await Promise.all([
-        ...existingPhotos.map(photoToChatbotImage),
+        ...existingPhotos.map((photo) => photoToChatbotImage(photo, t('readExistingPhotoFailed'))),
         ...photoFiles.map(fileToChatbotImage),
       ])
       const credentials = await memoryService.getOpenAiCredentials()
@@ -317,7 +325,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '故事生成失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('storyGenerateFailed')))
     } finally {
       setIsRefining(false)
     }
@@ -326,7 +334,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const handleRefineContentWithImages = async () => {
     const message = buildMemoryAssistantMessage(formState)
     if (!message && totalPhotoCount === 0) {
-      setError('请先输入文字或选择至少一张图片。')
+      setError(t('enterTextOrImage'))
       return
     }
 
@@ -336,7 +344,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setIsRefiningWithImages(true)
       setError('')
       const images = await Promise.all([
-        ...existingPhotos.map(photoToChatbotImage),
+        ...existingPhotos.map((photo) => photoToChatbotImage(photo, t('readExistingPhotoFailed'))),
         ...photoFiles.map(fileToChatbotImage),
       ])
       const credentials = await memoryService.getOpenAiCredentials()
@@ -349,7 +357,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('imageTextRefineFailed')))
     } finally {
       setIsRefiningWithImages(false)
     }
@@ -357,7 +365,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
 
   const handleRefineContentWithAudio = async () => {
     if (totalAudioCount === 0) {
-      setError('请先选择至少一段音频。')
+      setError(t('selectAudioFirst'))
       return
     }
 
@@ -367,7 +375,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setIsRefiningWithAudio(true)
       setError('')
       const audios = await Promise.all([
-        ...existingAudios.map(audioToChatbotAudio),
+        ...existingAudios.map((audio) => audioToChatbotAudio(audio, t('readExistingAudioFailed'))),
         ...audioFiles.map(fileToChatbotAudio),
       ])
       const credentials = await memoryService.getOpenAiCredentials()
@@ -376,7 +384,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '语音转录失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('transcribeFailed')))
     } finally {
       setIsRefiningWithAudio(false)
     }
@@ -401,7 +409,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     const mergedFiles = appendUniqueFiles(photoFiles, selected)
     const remainingSlots = Math.max(0, MAX_PHOTO_COUNT - existingPhotos.length)
     if (mergedFiles.length > remainingSlots) {
-      setError(`每次最多保留 ${MAX_PHOTO_COUNT} 张图片。`)
+      setError(t('maxKeepPhotos', { max: MAX_PHOTO_COUNT }))
     } else {
       setError('')
     }
@@ -427,7 +435,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     const mergedFiles = appendUniqueFiles(audioFiles, selected)
     const remainingSlots = Math.max(0, MAX_AUDIO_COUNT - existingAudios.length)
     if (mergedFiles.length > remainingSlots) {
-      setError(`每次最多保留 ${MAX_AUDIO_COUNT} 段音频。`)
+      setError(t('maxKeepAudio', { max: MAX_AUDIO_COUNT }))
     } else {
       setError('')
     }
@@ -448,12 +456,12 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
       onClose={handleClose}
     >
       <div className="create-memory-dialog-content">
-        <h2>编辑记忆</h2>
+        <h2>{t('editMemory')}</h2>
         {error ? <p className="auth-error">{error}</p> : null}
 
         <form className="create-memory-form" onSubmit={handleSubmit}>
           <label className="auth-label">
-            标题
+            {t('fieldTitle')}
             <div className="input-with-audio">
               <input
                 className="auth-input"
@@ -465,7 +473,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入标题"
+                ariaLabel={t('voiceInputTitle')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -478,7 +486,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
           </label>
 
           <label className="auth-label">
-            时间
+            {t('fieldTime')}
             <input
               className="auth-input create-memory-date"
               type="date"
@@ -489,7 +497,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
           </label>
 
           <label className="auth-label">
-            地点
+            {t('fieldLocation')}
             <div className="input-with-audio">
               <input
                 className="auth-input"
@@ -500,7 +508,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入地点"
+                ariaLabel={t('voiceInputLocation')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -513,7 +521,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
           </label>
 
           <label className="auth-label">
-            内容
+            {t('fieldContent')}
             <div className="input-with-audio input-with-audio--textarea">
               <textarea
                 className="auth-input create-memory-textarea"
@@ -525,7 +533,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入内容"
+                ariaLabel={t('voiceInputContent')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -541,8 +549,8 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 className="text-assistant-icon-button"
                 onClick={handleRevertContent}
                 disabled={isBusy || contentBeforeRefine === null}
-                aria-label="恢复润色前文本"
-                title="恢复润色前文本"
+                aria-label={t('revertRefine')}
+                title={t('revertRefine')}
               >
                 ↺
               </button>
@@ -555,10 +563,10 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 {isRefining ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    故事生成中...
+                    {t('generatingStory')}
                   </>
                 ) : (
-                  '故事AI助手'
+                  t('storyAi')
                 )}
               </button>
               <button
@@ -570,10 +578,10 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 {isRefiningWithImages ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    图文润色中...
+                    {t('refiningImageText')}
                   </>
                 ) : (
-                  '图文AI助手'
+                  t('imageTextAi')
                 )}
               </button>
               <button
@@ -588,33 +596,37 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 {isRefiningWithAudio ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    语音转录中...
+                    {t('transcribingAudio')}
                   </>
                 ) : (
-                  '语音转录AI'
+                  t('voiceTranscribeAi')
                 )}
               </button>
             </div>
           </label>
 
           <label className="auth-label">
-            图片
+            {t('fieldPhotos')}
             <div className="file-picker-row">
               <label
                 htmlFor="edit-photo-file-input"
                 className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
               >
-                选择图片
+                {t('choosePhotos')}
               </label>
               <span className="file-picker-name">
-                {totalPhotoCount > 0 ? `当前 ${totalPhotoCount}/${MAX_PHOTO_COUNT} 张` : `最多 ${MAX_PHOTO_COUNT} 张`}
+                {totalPhotoCount > 0
+                  ? t('photosCurrent', { count: totalPhotoCount, max: MAX_PHOTO_COUNT })
+                  : t('photosMax', { max: MAX_PHOTO_COUNT })}
               </span>
             </div>
             {existingPhotos.length > 0 ? (
               <div className="selected-file-list">
                 {existingPhotos.map((photo) => (
                   <div key={photo.id} className="selected-file-item">
-                    <span className="selected-file-item-name">{getFileNameFromUrl(photo.url)}</span>
+                    <span className="selected-file-item-name">
+                      {getFileNameFromUrl(photo.url, t('unnamedFile'))}
+                    </span>
                     <button
                       type="button"
                       className="selected-file-remove"
@@ -623,7 +635,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setRemovedPhotoIds((prev) => (prev.includes(photo.id) ? prev : [...prev, photo.id]))
                       }}
                       disabled={isBusy}
-                      aria-label={`删除图片 ${getFileNameFromUrl(photo.url)}`}
+                      aria-label={t('removePhoto', { name: getFileNameFromUrl(photo.url, t('unnamedFile')) })}
                     >
                       ×
                     </button>
@@ -643,7 +655,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setPhotoFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
                       disabled={isBusy}
-                      aria-label={`删除图片 ${file.name}`}
+                      aria-label={t('removePhoto', { name: file.name })}
                     >
                       ×
                     </button>
@@ -666,23 +678,27 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
           </label>
 
           <label className="auth-label">
-            音频
+            {t('fieldAudio')}
             <div className="file-picker-row">
               <label
                 htmlFor="edit-audio-file-input"
                 className={`file-picker-trigger ${isBusy || isAudioLimitReached ? 'disabled' : ''}`}
               >
-                选择音频
+                {t('chooseAudio')}
               </label>
               <span className="file-picker-name">
-                {totalAudioCount > 0 ? `当前 ${totalAudioCount}/${MAX_AUDIO_COUNT} 段` : `最多 ${MAX_AUDIO_COUNT} 段`}
+                {totalAudioCount > 0
+                  ? t('audioCurrent', { count: totalAudioCount, max: MAX_AUDIO_COUNT })
+                  : t('audioMax', { max: MAX_AUDIO_COUNT })}
               </span>
             </div>
             {existingAudios.length > 0 ? (
               <div className="selected-file-list">
                 {existingAudios.map((audio) => (
                   <div key={audio.id} className="selected-file-item">
-                    <span className="selected-file-item-name">{getFileNameFromUrl(audio.url)}</span>
+                    <span className="selected-file-item-name">
+                      {getFileNameFromUrl(audio.url, t('unnamedFile'))}
+                    </span>
                     <button
                       type="button"
                       className="selected-file-remove"
@@ -691,7 +707,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setRemovedAudioIds((prev) => (prev.includes(audio.id) ? prev : [...prev, audio.id]))
                       }}
                       disabled={isBusy}
-                      aria-label={`删除音频 ${getFileNameFromUrl(audio.url)}`}
+                      aria-label={t('removeAudio', { name: getFileNameFromUrl(audio.url, t('unnamedFile')) })}
                     >
                       ×
                     </button>
@@ -711,7 +727,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                         setAudioFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
                       disabled={isBusy}
-                      aria-label={`删除音频 ${file.name}`}
+                      aria-label={t('removeAudio', { name: file.name })}
                     >
                       ×
                     </button>
@@ -735,10 +751,10 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
 
           <div className="create-memory-actions">
             <button type="button" className="auth-toolbar-button" onClick={onClose} disabled={isBusy}>
-              取消
+              {t('cancel')}
             </button>
             <button type="submit" className="auth-submit" disabled={isBusy}>
-              {isSubmitting ? '保存中...' : '保存修改'}
+              {isSubmitting ? t('saving') : t('saveChanges')}
             </button>
           </div>
         </form>

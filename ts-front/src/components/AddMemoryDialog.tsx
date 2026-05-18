@@ -12,6 +12,7 @@ import type { GpsCoordinate, LangchainAudioInput, LangchainImageInput } from '..
 import type { ApiError, MemoryContent } from '../types/api'
 import { AudioTranscribeButton } from './AudioTranscribeButton'
 import { LocationMap } from './LocationMap'
+import { useI18n } from '../i18n/I18nContext'
 
 type AddMemoryDialogProps = {
   isOpen: boolean
@@ -122,6 +123,7 @@ function buildStoryAssistantMessage(formState: FormState): string {
 }
 
 export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogProps) {
+  const { t } = useI18n()
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [formState, setFormState] = useState<FormState>(initialFormState)
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
@@ -192,7 +194,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     event.preventDefault()
 
     if (!formState.title.trim() || !formState.content.trim()) {
-      setError('请填写标题和内容。')
+      setError(t('fillTitleContent'))
       return
     }
 
@@ -224,7 +226,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       onCreated?.(created)
       onClose()
     } catch (submitError) {
-      setError(getErrorMessage(submitError, '保存失败，请稍后重试。'))
+      setError(getErrorMessage(submitError, t('saveFailed')))
     } finally {
       setIsSubmitting(false)
     }
@@ -233,7 +235,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const handleRefineContent = async () => {
     const message = buildStoryAssistantMessage(formState)
     if (!message && photoFiles.length === 0) {
-      setError('请先输入文字或选择至少一张图片。')
+      setError(t('enterTextOrImage'))
       return
     }
 
@@ -253,7 +255,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '故事生成失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('storyGenerateFailed')))
     } finally {
       setIsRefining(false)
     }
@@ -262,7 +264,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const handleRefineContentWithImages = async () => {
     const message = buildMemoryAssistantMessage(formState)
     if (!message && photoFiles.length === 0) {
-      setError('请先输入文字或选择至少一张图片。')
+      setError(t('enterTextOrImage'))
       return
     }
 
@@ -282,7 +284,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '图文润色失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('imageTextRefineFailed')))
     } finally {
       setIsRefiningWithImages(false)
     }
@@ -290,7 +292,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
 
   const handleRefineContentWithAudio = async () => {
     if (audioFiles.length === 0) {
-      setError('请先选择至少一段音频。')
+      setError(t('selectAudioFirst'))
       return
     }
 
@@ -306,7 +308,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       setContentBeforeRefine(originalContent)
       setFormState((prev) => ({ ...prev, content: response.reply }))
     } catch (refineError) {
-      setError(getErrorMessage(refineError, '语音转录失败，请稍后重试。'))
+      setError(getErrorMessage(refineError, t('transcribeFailed')))
     } finally {
       setIsRefiningWithAudio(false)
     }
@@ -330,7 +332,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
 
     const mergedFiles = appendUniqueFiles(photoFiles, selected)
     if (mergedFiles.length > MAX_PHOTO_COUNT) {
-      setError(`每次最多上传 ${MAX_PHOTO_COUNT} 张图片。`)
+      setError(t('maxUploadPhotos', { max: MAX_PHOTO_COUNT }))
     } else {
       setError('')
     }
@@ -356,7 +358,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
 
     const mergedFiles = appendUniqueFiles(audioFiles, selected)
     if (mergedFiles.length > MAX_AUDIO_COUNT) {
-      setError(`每次最多上传 ${MAX_AUDIO_COUNT} 段音频。`)
+      setError(t('maxUploadAudio', { max: MAX_AUDIO_COUNT }))
     } else {
       setError('')
     }
@@ -377,12 +379,12 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
       onClose={handleClose}
     >
       <div className="create-memory-dialog-content">
-        <h2>新增记忆</h2>
+        <h2>{t('addMemory')}</h2>
         {error ? <p className="auth-error">{error}</p> : null}
 
         <form className="create-memory-form" onSubmit={handleSubmit}>
           <label className="auth-label">
-            标题
+            {t('fieldTitle')}
             <div className="input-with-audio">
               <input
                 className="auth-input"
@@ -394,7 +396,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入标题"
+                ariaLabel={t('voiceInputTitle')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -407,7 +409,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
           </label>
 
           <label className="auth-label">
-            时间
+            {t('fieldTime')}
             <input
               className="auth-input create-memory-date"
               type="date"
@@ -418,7 +420,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
           </label>
 
           <label className="auth-label">
-            地点
+            {t('fieldLocation')}
             <div className="input-with-audio">
               <input
                 className="auth-input"
@@ -429,7 +431,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入地点"
+                ariaLabel={t('voiceInputLocation')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -442,7 +444,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
           </label>
 
           <label className="auth-label">
-            内容
+            {t('fieldContent')}
             <div className="input-with-audio input-with-audio--textarea">
               <textarea
                 className="auth-input create-memory-textarea"
@@ -454,7 +456,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
               />
               <AudioTranscribeButton
                 disabled={isBusy}
-                ariaLabel="语音输入内容"
+                ariaLabel={t('voiceInputContent')}
                 onError={setError}
                 onTranscribed={(text) =>
                   setFormState((prev) => ({
@@ -470,8 +472,8 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 className="text-assistant-icon-button"
                 onClick={handleRevertContent}
                 disabled={isBusy || contentBeforeRefine === null}
-                aria-label="恢复润色前文本"
-                title="恢复润色前文本"
+                aria-label={t('revertRefine')}
+                title={t('revertRefine')}
               >
                 ↺
               </button>
@@ -484,10 +486,10 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 {isRefining ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    故事生成中...
+                    {t('generatingStory')}
                   </>
                 ) : (
-                  '故事AI助手'
+                  t('storyAi')
                 )}
               </button>
               <button
@@ -499,10 +501,10 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 {isRefiningWithImages ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    图文润色中...
+                    {t('refiningImageText')}
                   </>
                 ) : (
-                  '图文AI助手'
+                  t('imageTextAi')
                 )}
               </button>
               <button
@@ -517,26 +519,28 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 {isRefiningWithAudio ? (
                   <>
                     <span className="text-assistant-spinner" aria-hidden="true" />
-                    语音转录中...
+                    {t('transcribingAudio')}
                   </>
                 ) : (
-                  '语音转录AI'
+                  t('voiceTranscribeAi')
                 )}
               </button>
             </div>
           </label>
 
           <label className="auth-label">
-            图片
+            {t('fieldPhotos')}
             <div className="file-picker-row">
               <label
                 htmlFor="photo-file-input"
                 className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
               >
-                选择图片
+                {t('choosePhotos')}
               </label>
               <span className="file-picker-name">
-                {photoFiles.length > 0 ? `已选择 ${photoFiles.length}/${MAX_PHOTO_COUNT} 张` : `最多 ${MAX_PHOTO_COUNT} 张`}
+                {photoFiles.length > 0
+                  ? t('photosSelected', { count: photoFiles.length, max: MAX_PHOTO_COUNT })
+                  : t('photosMax', { max: MAX_PHOTO_COUNT })}
               </span>
             </div>
             {photoFiles.length > 0 ? (
@@ -551,7 +555,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                         setPhotoFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
                       disabled={isBusy}
-                      aria-label={`删除图片 ${file.name}`}
+                      aria-label={t('removePhoto', { name: file.name })}
                     >
                       ×
                     </button>
@@ -574,16 +578,18 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
           </label>
 
           <label className="auth-label">
-            音频
+            {t('fieldAudio')}
             <div className="file-picker-row">
               <label
                 htmlFor="audio-file-input"
                 className={`file-picker-trigger ${isBusy || isAudioLimitReached ? 'disabled' : ''}`}
               >
-                选择音频
+                {t('chooseAudio')}
               </label>
               <span className="file-picker-name">
-                {audioFiles.length > 0 ? `已选择 ${audioFiles.length}/${MAX_AUDIO_COUNT} 段` : `最多 ${MAX_AUDIO_COUNT} 段`}
+                {audioFiles.length > 0
+                  ? t('audioSelected', { count: audioFiles.length, max: MAX_AUDIO_COUNT })
+                  : t('audioMax', { max: MAX_AUDIO_COUNT })}
               </span>
             </div>
             {audioFiles.length > 0 ? (
@@ -598,7 +604,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                         setAudioFiles((prev) => prev.filter((x) => getFileKey(x) !== getFileKey(file)))
                       }
                       disabled={isBusy}
-                      aria-label={`删除音频 ${file.name}`}
+                      aria-label={t('removeAudio', { name: file.name })}
                     >
                       ×
                     </button>
@@ -622,17 +628,17 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
 
           {coordinates ? (
             <label className="auth-label">
-              地图
+              {t('fieldMap')}
               <LocationMap latitude={coordinates.lat} longitude={coordinates.lon} />
             </label>
           ) : null}
 
           <div className="create-memory-actions">
             <button type="button" className="auth-toolbar-button" onClick={onClose} disabled={isBusy}>
-              取消
+              {t('cancel')}
             </button>
             <button type="submit" className="auth-submit" disabled={isBusy}>
-              {isSubmitting ? '保存中...' : '保存'}
+              {isSubmitting ? t('saving') : t('save')}
             </button>
           </div>
         </form>

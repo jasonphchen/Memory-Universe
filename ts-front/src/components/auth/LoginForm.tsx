@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { useI18n } from '../../i18n/I18nContext'
 
 type LoginFormProps = {
   isLoading: boolean
@@ -7,6 +8,7 @@ type LoginFormProps = {
 }
 
 export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
+  const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
@@ -18,7 +20,7 @@ export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
       <label className="auth-label">
-        用户名
+        {t('username')}
         <input
           className="auth-input"
           value={username}
@@ -29,7 +31,7 @@ export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
       </label>
 
       <label className="auth-label">
-        密码
+        {t('password')}
         <input
           className="auth-input"
           type="password"
@@ -41,7 +43,7 @@ export function LoginForm({ isLoading, onSubmit }: LoginFormProps) {
       </label>
 
       <button className="auth-submit" type="submit" disabled={isLoading}>
-        {isLoading ? '登录中...' : '登录'}
+        {isLoading ? t('loggingIn') : t('login')}
       </button>
     </form>
   )

@@ -2,6 +2,8 @@ import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { MemoryNode } from './memory.types'
 import type { UniverseTheme } from './universeThemes'
+import { useI18n } from '../i18n/I18nContext'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
 type FontMode = 'standard' | 'senior'
 
@@ -211,6 +213,7 @@ function generateDistributedTextureIndices(
 }
 
 export function UniverseScene({ memories, onSelectMemory, theme }: UniverseSceneProps) {
+  const { t } = useI18n()
   const mountRef = useRef<HTMLDivElement | null>(null)
   const [fontMode, setFontMode] = useState<FontMode>(() => {
     if (typeof window === 'undefined') return 'standard'
@@ -599,23 +602,27 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
   return (
     <>
       <div ref={mountRef} className="universe-canvas" />
-      <div className="font-mode-switcher" role="group" aria-label="字体大小">
-        <button
-          type="button"
-          className={`font-mode-option${fontMode === 'standard' ? ' is-active' : ''}`}
-          aria-pressed={fontMode === 'standard'}
-          onClick={() => setFontMode('standard')}
-        >
-          标准版
-        </button>
-        <button
-          type="button"
-          className={`font-mode-option${fontMode === 'senior' ? ' is-active' : ''}`}
-          aria-pressed={fontMode === 'senior'}
-          onClick={() => setFontMode('senior')}
-        >
-          老年版
-        </button>
+      <div className="font-mode-switcher">
+        <div className="switch-group" role="group" aria-label={t('fontSize')}>
+          <button
+            type="button"
+            className={`font-mode-option${fontMode === 'standard' ? ' is-active' : ''}`}
+            aria-pressed={fontMode === 'standard'}
+            onClick={() => setFontMode('standard')}
+          >
+            {t('fontStandard')}
+          </button>
+          <button
+            type="button"
+            className={`font-mode-option${fontMode === 'senior' ? ' is-active' : ''}`}
+            aria-pressed={fontMode === 'senior'}
+            onClick={() => setFontMode('senior')}
+          >
+            {t('fontSenior')}
+          </button>
+        </div>
+        <span className="switch-divider" aria-hidden="true" />
+        <LanguageSwitcher />
       </div>
     </>
   )
