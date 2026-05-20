@@ -783,6 +783,43 @@
   flex-shrink: 0;
 }
 
+.memory-translation-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.memory-translate-button {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  border-radius: 999px;
+}
+
+.memory-translation-error {
+  margin: 0;
+}
+
+.memory-translation-result {
+  border-left: 3px solid var(--switch-option-border);
+  padding: 6px 0 6px 10px;
+  margin: 0;
+}
+
+.memory-translation-label {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dialog-meta);
+}
+
+.memory-translation-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
 .memory-loading,
 .memory-error {
   margin: 10px 0 4px;

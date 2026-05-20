@@ -52,6 +52,7 @@ public class ChatbotService
     private const string DefaultAzureAudioApiVersion = "2025-03-01-preview";
     private const string DefaultSystemPrompt = "你是一个中文记忆助手，请根据用户输入提供自然、准确、简洁的回复。";
     private const string AudioSummarySystemPrompt = "请将音频转录内容总结成约100字的简体中文。只输出总结内容，不要添加说明、标题或项目符号。";
+    private const string EnglishTranslationSystemPrompt = "Translate the user's text into natural, fluent English. Only output the translated text — no explanations, no titles, no quotation marks, no prefixes such as 'Translation:'. If the text is already in English, return it unchanged.";
 
     private readonly string _apiKey;
     private readonly string _audioApiKey;
@@ -126,6 +127,26 @@ public class ChatbotService
 
         var reply = string.IsNullOrWhiteSpace(result.Content)
             ? "生成回复失败。"
+            : result.Content.Trim();
+
+        return new ChatbotResponse(reply, _chatModel);
+    }
+
+    public async Task<ChatbotResponse> TranslateToEnglishAsync(ChatbotRequest request, CancellationToken cancellationToken = default)
+    {
+        var history = new ChatHistory();
+        history.AddSystemMessage(EnglishTranslationSystemPrompt);
+        history.AddUserMessage(request.Message.Trim());
+
+        var result = await _chatCompletionService.GetChatMessageContentAsync(
+            history,
+            executionSettings: null,
+            _kernel,
+            cancellationToken
+        );
+
+        var reply = string.IsNullOrWhiteSpace(result.Content)
+            ? "Translation failed."
             : result.Content.Trim();
 
         return new ChatbotResponse(reply, _chatModel);

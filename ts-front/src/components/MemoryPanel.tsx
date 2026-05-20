@@ -41,6 +41,9 @@ export function MemoryPanel({
   const [isSpeaking, setIsSpeaking] = useState(false)
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null)
   const ttsObjectUrlRef = useRef<string | null>(null)
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null)
+  const [isTranslating, setIsTranslating] = useState(false)
+  const [translationError, setTranslationError] = useState<string>('')
 
   const clampScale = (value: number) => Math.min(4, Math.max(1, value))
 
@@ -98,6 +101,9 @@ export function MemoryPanel({
 
   useEffect(() => {
     stopTts()
+    setTranslatedContent(null)
+    setTranslationError('')
+    setIsTranslating(false)
   }, [selectedMemory?.id])
 
   useEffect(() => {
@@ -148,6 +154,28 @@ export function MemoryPanel({
       await audio.play()
     } catch {
       stopTts()
+    }
+  }
+
+  const handleTranslateContent = async () => {
+    const text = selectedMemory?.content?.trim()
+    if (!text || isTranslating) return
+
+    if (translatedContent) {
+      setTranslatedContent(null)
+      setTranslationError('')
+      return
+    }
+
+    try {
+      setIsTranslating(true)
+      setTranslationError('')
+      const response = await memoryService.translateToEnglish(text)
+      setTranslatedContent(response.reply.trim())
+    } catch {
+      setTranslationError(t('translationFailed'))
+    } finally {
+      setIsTranslating(false)
     }
   }
 
@@ -294,6 +322,39 @@ export function MemoryPanel({
                   </button>
                 ) : null}
               </div>
+
+              {selectedMemory.content?.trim() ? (
+                <div className="memory-translation-block">
+                  <button
+                    type="button"
+                    className="text-assistant-button memory-translate-button"
+                    onClick={handleTranslateContent}
+                    disabled={isTranslating}
+                    aria-label={
+                      isTranslating
+                        ? t('translating')
+                        : translatedContent
+                          ? t('hideTranslation')
+                          : t('translateToEnglish')
+                    }
+                  >
+                    {isTranslating
+                      ? t('translating')
+                      : translatedContent
+                        ? t('hideTranslation')
+                        : t('translateToEnglish')}
+                  </button>
+                  {translationError ? (
+                    <p className="memory-error memory-translation-error">{translationError}</p>
+                  ) : null}
+                  {translatedContent ? (
+                    <div className="memory-translation-result">
+                      <p className="memory-translation-label">{t('englishTranslationBy')}</p>
+                      <p className="memory-translation-text">{translatedContent}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {hasPhotos ? (
                 <div className="memory-media-block">

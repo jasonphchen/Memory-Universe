@@ -50,6 +50,11 @@ const cn = {
   deleting: '删除中...',
   confirmDelete: '确认删除',
   audioNotSupported: '您的浏览器不支持音频播放。',
+  translateToEnglish: '翻译为英文',
+  hideTranslation: '隐藏译文',
+  translating: '翻译中...',
+  englishTranslationBy: '由 OpenAI 翻译',
+  translationFailed: '翻译失败，请稍后重试。',
 
   // Add / Edit memory dialogs
   addMemory: '新增记忆',
@@ -171,6 +176,11 @@ const en: Translations = {
   deleting: 'Deleting...',
   confirmDelete: 'Confirm delete',
   audioNotSupported: 'Your browser does not support audio playback.',
+  translateToEnglish: 'Translate to English',
+  hideTranslation: 'Hide translation',
+  translating: 'Translating...',
+  englishTranslationBy: 'English translation by OpenAI',
+  translationFailed: 'Translation failed. Please try again later.',
 
   // Add / Edit memory dialogs
   addMemory: 'Add Memory',

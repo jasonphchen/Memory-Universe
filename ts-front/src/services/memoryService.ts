@@ -84,6 +84,9 @@ export const memoryService = {
       { auth: true },
     )
   },
+  translateToEnglish(message: string) {
+    return request<ChatbotResponse>('/api/chatbot/translate', 'POST', { message })
+  },
   create(payload: CreateOrUpdateMemoryPayload) {
     return request<MemoryContent>('/api/content', 'POST', payload, { auth: true })
   },

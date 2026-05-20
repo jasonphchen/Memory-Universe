@@ -34,6 +34,26 @@ public class ChatbotController : ControllerBase
         }
     }
 
+    [HttpPost("translate")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Translate([FromBody] ChatbotRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            return BadRequest(new { message = "Message is required." });
+        }
+
+        try
+        {
+            var response = await _chatbotService.TranslateToEnglishAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+        }
+    }
+
     [HttpPost("chat/images")]
     public async Task<IActionResult> ChatWithImages([FromBody] ChatbotImageRequest request, CancellationToken cancellationToken)
     {
