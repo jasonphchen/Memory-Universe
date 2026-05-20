@@ -1,45 +1,75 @@
 # Memory Universe
+- A memory universe that kept all the precious memories of my family.
+- Website: http://memory.jasonphchen.com
 
-## Features
+## Architecture
 - Backend
     - C#, Dotnet
-    - AI Package
-        - Semantic Kernal
+    - Packages
+        - AI
+            - Semantic Kernal
+        - Image Processing and Compression
+            - HEIC/HEIF (Apple Photos)
+                - ImageMagick
+            - Other Images
+                - ImageSharp
 - Frontend
     - TypeScript, React
-- Database
-    - MongoDB
+    - Packages
+        - 3D Rendering
+            - three.js
+        - Image Metadata Extraction
+            - exifr
+        - Map
+            - leaflet
+    - API
+        - OpenStreetMap
+            - Transform Location to Cooridnate
+- Server:
+    - Tecent Cloud VM
+    - Database
+        - MongoDB
+    - Web Server
+        - Nginx
+    - DNS and Domain Registrar
+        - CloudFlare
+    - HTTPS
+        - SSL Certificate & CertBot Auto-update
 - AI
-    - OpenAI API (gpt-5.4-mini, gpt-4o-mini-transcribe)
-- Authentication (Register, Login)
-- Responsive (Desktop & Mobile)
-- CRUD Memory
+    - Azure OpenAI API
+        - Models
+            - Text: gpt-5.4-mini 
+            - Text-to-Audio: gpt-4o-mini-transcribe
+    - ElevanLabs API
+        - Text to Audio
 
+## Features
+    - Responsive (Desktop & Mobile)
+    - CRUD Memory
+    - Authentication (Register, Login)
+    - Image Geolocation Extraction
+    - Geolocation Map
+    - Multi-Modals AI
+        - OpenAI Text Refinement
+        - OpenAI Translation
+        - OpenAI Transcribe (Speech to Text)
+        - ElevalLabs Audio (Text to Speech)
+
+## Compress Image
 ```bash
-- Server: TecentCloud, Nginx
-- Dotnet, React, C#, TypeScript, Semantic Kernal
-- Three Images per dialog is maximum
-```
-
-```bash
-http://43.132.123.72
-
-export PATH="/opt/homebrew/opt/dotnet@9/bin:$PATH"
-export DOTNET_ROOT="/opt/homebrew/opt/dotnet@9/libexec"
-```
-
-```bash
+pip install Pillow
 python ts-front/src/assets/compress.py
 ```
 
+## Deployment Script
 ```bash
-kill -9 pid
+kill -9 <pid> # Kill the existing dotnet process
 
 cd Memory-Universe
 git fetch origin
 git reset --hard origin/main
 cd dotnet_back
-Move the appsettings.json
+# Move the appsettings.json
 
 dotnet publish -c Release
 
@@ -47,12 +77,4 @@ cd bin/Release/net9.0
 
 export DOTNET_ENVIRONMENT=Release
 nohup dotnet dotnet_back.dll > output.log 2>&1 &
-```
-
-```bash
-cd /home/ubuntu/Memory-Universe/dotnet_back/bin/Release/net9.0
-```
-
-```bash
-sudo apt install -y ffmpeg
 ```
