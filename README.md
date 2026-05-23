@@ -49,6 +49,7 @@
     - Authentication (Register, Login)
     - Image Geolocation Extraction
     - Geolocation Map
+    - System Language Detection
     - Multi-Modals AI
         - OpenAI Text Refinement
         - OpenAI Translation
