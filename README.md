@@ -26,7 +26,7 @@
         - OpenStreetMap
             - Transform Location to Cooridnate
 - Server:
-    - Tecent Cloud VM
+    - Tencent Cloud VM
     - Database
         - MongoDB
     - Web Server
