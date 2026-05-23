@@ -45,7 +45,7 @@
 
 ## Features
     - Responsive (Desktop & Mobile)
-    - CRUD Memory
+    - CRUD Memory with Photos and Audios
     - Authentication (Register, Login)
     - Image Geolocation Extraction
     - Geolocation Map
