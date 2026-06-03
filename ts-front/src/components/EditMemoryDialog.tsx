@@ -26,7 +26,6 @@ type FormState = {
   content: string
 }
 
-const MAX_PHOTO_COUNT = 3
 const MAX_AUDIO_COUNT = 3
 
 function getFileKey(file: File): string {
@@ -203,7 +202,6 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
   const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
   const totalPhotoCount = existingPhotos.length + photoFiles.length
   const totalAudioCount = existingAudios.length + audioFiles.length
-  const isPhotoLimitReached = totalPhotoCount >= MAX_PHOTO_COUNT
   const isAudioLimitReached = totalAudioCount >= MAX_AUDIO_COUNT
   const canUseImageAssistants = Boolean(buildStoryAssistantMessage(formState)) || totalPhotoCount > 0
 
@@ -407,16 +405,9 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
     }
 
     const mergedFiles = appendUniqueFiles(photoFiles, selected)
-    const remainingSlots = Math.max(0, MAX_PHOTO_COUNT - existingPhotos.length)
-    if (mergedFiles.length > remainingSlots) {
-      setError(t('maxKeepPhotos', { max: MAX_PHOTO_COUNT }))
-    } else {
-      setError('')
-    }
-
-    const trimmed = mergedFiles.slice(0, remainingSlots)
-    setPhotoFiles(trimmed)
-    void autoFillLocationFromPhotos(trimmed)
+    setError('')
+    setPhotoFiles(mergedFiles)
+    void autoFillLocationFromPhotos(mergedFiles)
   }
 
   const autoFillLocationFromPhotos = async (files: File[]) => {
@@ -610,14 +601,14 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
             <div className="file-picker-row">
               <label
                 htmlFor="edit-photo-file-input"
-                className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
               >
                 {t('choosePhotos')}
               </label>
               <span className="file-picker-name">
                 {totalPhotoCount > 0
-                  ? t('photosCurrent', { count: totalPhotoCount, max: MAX_PHOTO_COUNT })
-                  : t('photosMax', { max: MAX_PHOTO_COUNT })}
+                  ? t('photosCurrentCount', { count: totalPhotoCount })
+                  : t('photosHint')}
               </span>
             </div>
             {existingPhotos.length > 0 ? (
@@ -673,7 +664,7 @@ export function EditMemoryDialog({ memory, isOpen, onClose, onSaved }: EditMemor
                 handlePhotoChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy || isPhotoLimitReached}
+              disabled={isBusy}
             />
           </label>
 

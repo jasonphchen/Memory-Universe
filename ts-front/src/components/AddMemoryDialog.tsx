@@ -27,7 +27,6 @@ type FormState = {
   content: string
 }
 
-const MAX_PHOTO_COUNT = 3
 const MAX_AUDIO_COUNT = 3
 
 const initialFormState: FormState = {
@@ -137,7 +136,6 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
   const [coordinates, setCoordinates] = useState<GpsCoordinate | null>(null)
   const [lastGeocodedLocation, setLastGeocodedLocation] = useState<string>('')
   const isBusy = isSubmitting || isRefining || isRefiningWithImages || isRefiningWithAudio
-  const isPhotoLimitReached = photoFiles.length >= MAX_PHOTO_COUNT
   const isAudioLimitReached = audioFiles.length >= MAX_AUDIO_COUNT
   const canUseImageAssistants = Boolean(buildStoryAssistantMessage(formState)) || photoFiles.length > 0
 
@@ -331,15 +329,9 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
     }
 
     const mergedFiles = appendUniqueFiles(photoFiles, selected)
-    if (mergedFiles.length > MAX_PHOTO_COUNT) {
-      setError(t('maxUploadPhotos', { max: MAX_PHOTO_COUNT }))
-    } else {
-      setError('')
-    }
-
-    const trimmed = mergedFiles.slice(0, MAX_PHOTO_COUNT)
-    setPhotoFiles(trimmed)
-    void autoFillLocationFromPhotos(trimmed)
+    setError('')
+    setPhotoFiles(mergedFiles)
+    void autoFillLocationFromPhotos(mergedFiles)
   }
 
   const autoFillLocationFromPhotos = async (files: File[]) => {
@@ -533,14 +525,14 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
             <div className="file-picker-row">
               <label
                 htmlFor="photo-file-input"
-                className={`file-picker-trigger ${isBusy || isPhotoLimitReached ? 'disabled' : ''}`}
+                className={`file-picker-trigger ${isBusy ? 'disabled' : ''}`}
               >
                 {t('choosePhotos')}
               </label>
               <span className="file-picker-name">
                 {photoFiles.length > 0
-                  ? t('photosSelected', { count: photoFiles.length, max: MAX_PHOTO_COUNT })
-                  : t('photosMax', { max: MAX_PHOTO_COUNT })}
+                  ? t('photosSelectedCount', { count: photoFiles.length })
+                  : t('photosHint')}
               </span>
             </div>
             {photoFiles.length > 0 ? (
@@ -573,7 +565,7 @@ export function AddMemoryDialog({ isOpen, onClose, onCreated }: AddMemoryDialogP
                 handlePhotoChange(event.target.files)
                 event.currentTarget.value = ''
               }}
-              disabled={isBusy || isPhotoLimitReached}
+              disabled={isBusy}
             />
           </label>
 
