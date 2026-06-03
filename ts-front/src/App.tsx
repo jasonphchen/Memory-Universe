@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MemoryPanel } from './components/MemoryPanel'
+import { SearchBox } from './components/SearchBox'
 import { UniverseScene } from './components/UniverseScene'
 import type { MemoryNode } from './components/memory.types'
 import { AuthDialog } from './components/auth/AuthDialog'
@@ -51,7 +52,7 @@ function App() {
   const loadMemoryList = async () => {
     try {
       const list = await memoryService.list()
-      setMemories(list.map((item) => ({ id: item.id, title: item.title })))
+      setMemories(list.map((item) => ({ id: item.id, title: item.title, location: item.location })))
     } catch {
       setMemories([])
     }
@@ -186,6 +187,8 @@ function App() {
       />
 
       {/* <div className="universe-caption">点击一颗星球，查看它的故事。</div> */}
+
+      <SearchBox memories={memories} onSelectMemory={handleSelectMemory} />
 
       {authUser ? (
         <span className="auth-toolbar auth-user">{t('greeting', { name: authUser.username })}</span>

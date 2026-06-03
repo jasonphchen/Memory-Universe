@@ -34,6 +34,10 @@ const cn = {
   fontStandard: '标准版',
   fontSenior: '老年版',
 
+  // Search
+  searchPlaceholder: '搜索标题或地点',
+  searchNoResults: '没有匹配的记忆',
+
   // MemoryPanel
   closeDialog: '关闭弹窗',
   loading: '加载中...',
@@ -162,6 +166,10 @@ const en: Translations = {
   fontSize: 'Font size',
   fontStandard: 'Standard',
   fontSenior: 'Large',
+
+  // Search
+  searchPlaceholder: 'Search title or location',
+  searchNoResults: 'No matching memories',
 
   // MemoryPanel
   closeDialog: 'Close dialog',

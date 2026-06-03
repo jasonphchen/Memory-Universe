@@ -176,6 +176,87 @@
   border-color: var(--switch-option-active-bg);
 }
 
+.memory-search {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  z-index: 25;
+}
+
+.memory-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border: 1px solid var(--switch-border);
+  border-radius: 12px;
+  background: var(--switch-bg);
+  color: var(--caption-text);
+  font-size: 0.9rem;
+  outline: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  transition: border-color 130ms ease;
+}
+
+.memory-search-input::placeholder {
+  color: var(--caption-text);
+  opacity: 0.6;
+}
+
+.memory-search-input:focus {
+  border-color: var(--switch-option-active-bg);
+}
+
+.memory-search-results {
+  margin: 8px 0 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--switch-border);
+  border-radius: 12px;
+  background: var(--switch-bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+}
+
+.memory-search-result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--caption-text);
+  cursor: pointer;
+  transition: background-color 130ms ease;
+}
+
+.memory-search-result:hover {
+  background: var(--switch-option-bg);
+}
+
+.memory-search-result-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.memory-search-result-location {
+  font-size: 0.76rem;
+  opacity: 0.7;
+}
+
+.memory-search-empty {
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  opacity: 0.7;
+}
+
 .add-memory-fab {
   position: absolute;
   right: 22px;
@@ -920,6 +1001,23 @@
   .auth-toolbar {
     top: 12px;
     left: 12px;
+    max-width: 140px;
+  }
+
+  /* Keep a long greeting from pushing into the search box. */
+  .auth-user {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Sit to the right of the login / user capsule and fill the rest of the row. */
+  .memory-search {
+    top: 12px;
+    left: 164px;
+    right: 12px;
+    width: auto;
+    transform: none;
   }
 
   .theme-switcher-dropdown {

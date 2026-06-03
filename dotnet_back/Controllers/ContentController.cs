@@ -124,7 +124,7 @@ public class ContentController : ControllerBase
     public async Task<IActionResult> List()
     {
         var memories = await _contentService.GetAllAsync();
-        var response = memories.Select(x => new MemoryListItemResponse(x.Id, x.Title)).ToList();
+        var response = memories.Select(x => new MemoryListItemResponse(x.Id, x.Title, x.Location)).ToList();
         return Ok(response);
     }
 
@@ -286,5 +286,5 @@ public class ContentController : ControllerBase
 
     public record CreateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location, double? Latitude, double? Longitude);
     public record UpdateMemoryRequest(string? Title, string? Content, DateOnly? Time, string? Location, double? Latitude, double? Longitude);
-    public record MemoryListItemResponse(string Id, string Title);
+    public record MemoryListItemResponse(string Id, string Title, string? Location);
 }

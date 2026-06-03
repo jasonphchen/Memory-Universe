@@ -56,6 +56,7 @@ export type MemoryAudio = {
 export type MemoryItem = {
   id: string
   title: string
+  location?: string | null
 }
 
 export type MemoryContent = {
