@@ -1,4 +1,5 @@
 import { request } from './apiClient'
+import { SUPPORTED_LANGS, type Lang } from '../i18n/translations'
 import type { OpenAiCredentials } from './langchain'
 import type {
   ChatbotAudioInput,
@@ -117,7 +118,15 @@ export const memoryService = {
     })
   },
   list() {
-    return request<MemoryItem[]>('/api/content', 'GET')
+    // The URL is /<username>/<lang> or /<lang>; strip the trailing language
+    // segment so the path sent to the API is /<username> (or / when absent).
+    const segments =
+      typeof window !== 'undefined' ? window.location.pathname.split('/').filter(Boolean) : []
+    if (SUPPORTED_LANGS.includes(segments[segments.length - 1] as Lang)) {
+      segments.pop()
+    }
+    const path = segments.length > 0 ? `/${segments.join('/')}` : '/'
+    return request<MemoryItem[]>(`/api/content?path=${encodeURIComponent(path)}`, 'GET')
   },
   async uploadPhoto(memoryId: string, file: File) {
     const formData = new FormData()

@@ -7,6 +7,7 @@ export type AuthResponse = {
   id: string
   username: string
   isSuperuser: boolean
+  path: string
   accessToken: string
   refreshToken: string
 }

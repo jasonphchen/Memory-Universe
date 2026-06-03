@@ -1,4 +1,5 @@
 using Dotnet_back.Models.ContentEntity;
+using Dotnet_back.Models.UserEntity;
 using Dotnet_back.Services.Geocoding;
 using Microsoft.AspNetCore.Http;
 using MongoDB.Bson;
@@ -14,6 +15,7 @@ namespace Dotnet_back.Services.ContentService;
 public class ContentService
 {
     private readonly IMongoCollection<MemoryContent> _memoryCollection;
+    private readonly IMongoCollection<User> _usersCollection;
     private readonly GeocodingService _geocodingService;
     private readonly string _uploadsRoot;
     private readonly string _photosRoot;
@@ -32,6 +34,7 @@ public class ContentService
         var collectionName = configuration["MongoDB:MemoryCollectionName"] ?? "memories";
         var database = mongoClient.GetDatabase(databaseName);
         _memoryCollection = database.GetCollection<MemoryContent>(collectionName);
+        _usersCollection = database.GetCollection<User>("Users");
 
         var webRootPath = environment.WebRootPath;
         if (string.IsNullOrWhiteSpace(webRootPath))
@@ -77,12 +80,32 @@ public class ContentService
         }
     }
 
-    public async Task<List<MemoryContent>> GetAllAsync()
+    public async Task<List<MemoryContent>> GetAllAsync(string? path = null, CancellationToken cancellationToken = default)
     {
+        var normalizedPath = string.IsNullOrWhiteSpace(path) ? "/" : path.Trim();
+
+        var userIds = await _usersCollection
+            .Find(x => x.Path == normalizedPath)
+            .Project(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var filterBuilder = Builders<MemoryContent>.Filter;
+        var filter = filterBuilder.In(x => x.CreatedByUserId, userIds);
+
+        // The root path also surfaces legacy content that has no creator recorded.
+        if (normalizedPath == "/")
+        {
+            filter = filterBuilder.Or(
+                filter,
+                filterBuilder.Eq(x => x.CreatedByUserId, null),
+                filterBuilder.Eq(x => x.CreatedByUserId, string.Empty)
+            );
+        }
+
         return await _memoryCollection
-            .Find(_ => true)
+            .Find(filter)
             .SortByDescending(x => x.Time)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<MemoryContent?> GetByIdAsync(string id)

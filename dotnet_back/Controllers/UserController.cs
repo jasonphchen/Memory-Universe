@@ -57,7 +57,8 @@ public class UserController : ControllerBase
             Id = ObjectId.GenerateNewId().ToString(),
             Username = normalizedUsername,
             PasswordHash = HashPassword(request.Password),
-            IsSuperuser = false
+            IsSuperuser = false,
+            Path = $"/{normalizedUsername}"
         };
 
         await _usersCollection.InsertOneAsync(user);
@@ -69,6 +70,7 @@ public class UserController : ControllerBase
             user.Id,
             user.Username,
             user.IsSuperuser,
+            user.Path,
             accessToken,
             refreshToken
         ));
@@ -96,6 +98,7 @@ public class UserController : ControllerBase
             user.Id,
             user.Username,
             user.IsSuperuser,
+            user.Path,
             accessToken,
             refreshToken
         ));
@@ -134,6 +137,7 @@ public class UserController : ControllerBase
             user.Id,
             user.Username,
             user.IsSuperuser,
+            user.Path,
             accessToken,
             refreshToken
         ));
@@ -196,6 +200,7 @@ public class UserController : ControllerBase
         string Id,
         string Username,
         bool IsSuperuser,
+        string Path,
         string AccessToken,
         string RefreshToken
     );

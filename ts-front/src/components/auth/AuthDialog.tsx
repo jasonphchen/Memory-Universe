@@ -22,11 +22,19 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const dialogRef = useRef<HTMLDialogElement | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Jump to the user's own page (/{path}/{lang}), keeping the current language.
+  // The path comes from the server and may differ from the username.
+  const navigateToUserPath = (path: string) => {
+    const segment = path.replace(/^\/+|\/+$/g, '')
+    const target = segment ? `/${segment}/${lang}` : `/${lang}`
+    window.history.pushState(null, '', target)
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -58,6 +66,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
       setIsLoading(true)
       setError('')
       const response = await authService.login(username, password)
+      navigateToUserPath(response.path)
       onAuthSuccess(response)
       onClose()
     } catch (authError) {
@@ -77,6 +86,7 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
       setIsLoading(true)
       setError('')
       const response = await authService.register(username, password, secret)
+      navigateToUserPath(response.path)
       onAuthSuccess(response)
       onClose()
     } catch (authError) {

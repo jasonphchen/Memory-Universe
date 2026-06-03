@@ -36,6 +36,7 @@ public class ContentController : ControllerBase
         var memory = new MemoryContent
         {
             Id = string.Empty,
+            CreatedByUserId = User.FindFirst("Id")?.Value,
             Title = request.Title.Trim(),
             Content = request.Content.Trim(),
             Time = request.Time,
@@ -121,9 +122,9 @@ public class ContentController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List()
+    public async Task<IActionResult> List([FromQuery] string? path, CancellationToken cancellationToken)
     {
-        var memories = await _contentService.GetAllAsync();
+        var memories = await _contentService.GetAllAsync(path, cancellationToken);
         var response = memories.Select(x => new MemoryListItemResponse(x.Id, x.Title, x.Location)).ToList();
         return Ok(response);
     }

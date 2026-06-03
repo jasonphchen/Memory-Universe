@@ -8,10 +8,11 @@ import {
 import { SUPPORTED_LANGS, translate, translations, type Lang } from './translations'
 import { I18nContext, type I18nContextValue, type TranslateFn } from './I18nContext'
 
-/** Read the language from the first path segment, if it is a supported one. */
+/** Read the language from the last path segment, if it is a supported one. */
 function langFromPath(): Lang | null {
-  const firstSegment = window.location.pathname.split('/').filter(Boolean)[0]
-  return SUPPORTED_LANGS.includes(firstSegment as Lang) ? (firstSegment as Lang) : null
+  const segments = window.location.pathname.split('/').filter(Boolean)
+  const lastSegment = segments[segments.length - 1]
+  return SUPPORTED_LANGS.includes(lastSegment as Lang) ? (lastSegment as Lang) : null
 }
 
 /** Guess the language from the browser/system settings. */
@@ -20,14 +21,13 @@ function langFromSystem(): Lang {
   return systemLang.startsWith('zh') ? 'cn' : 'en'
 }
 
-/** Build a path whose first segment is the language prefix, keeping the rest. */
+/** Build a path whose last segment is the language, keeping any username prefix. */
 function pathForLang(lang: Lang): string {
   const segments = window.location.pathname.split('/').filter(Boolean)
-  if (SUPPORTED_LANGS.includes(segments[0] as Lang)) {
-    segments[0] = lang
-  } else {
-    segments.unshift(lang)
+  if (SUPPORTED_LANGS.includes(segments[segments.length - 1] as Lang)) {
+    segments.pop()
   }
+  segments.push(lang)
   return `/${segments.join('/')}${window.location.search}${window.location.hash}`
 }
 
