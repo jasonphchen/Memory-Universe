@@ -44,19 +44,16 @@ export function ThemeSwitcher({
 
   return (
     <div ref={wrapperRef} className="theme-switcher">
-      <div className="theme-switcher-header">
-        <span className="theme-switcher-current">
-          {selectedTheme ? t(THEME_LABEL_KEYS[selectedTheme.id]) : t('themeFallback')}
-        </span>
-        <button
-          type="button"
-          className="theme-switcher-toggle"
-          aria-label={t('switchTheme')}
-          onClick={() => setIsOpen((prev) => !prev)}
-        >
-          {isOpen ? '✕' : '🎨'}
-        </button>
-      </div>
+      <button
+        type="button"
+        className={`control-button${isOpen ? ' is-active' : ''}`}
+        aria-label={t('switchTheme')}
+        aria-expanded={isOpen}
+        title={selectedTheme ? t(THEME_LABEL_KEYS[selectedTheme.id]) : t('switchTheme')}
+        onClick={() => setIsOpen((prev) => !prev)}
+      >
+        {isOpen ? '✕' : '🎨'}
+      </button>
       {isOpen ? (
         <div className="theme-switcher-dropdown">
           <div className="theme-switcher-options">

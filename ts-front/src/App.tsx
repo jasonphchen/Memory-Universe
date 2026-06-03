@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { MemoryPanel } from './components/MemoryPanel'
-import { ThemeSwitcher } from './components/ThemeSwitcher'
 import { UniverseScene } from './components/UniverseScene'
 import type { MemoryNode } from './components/memory.types'
 import { AuthDialog } from './components/auth/AuthDialog'
@@ -181,6 +180,9 @@ function App() {
         memories={memories}
         onSelectMemory={handleSelectMemory}
         theme={selectedTheme}
+        themes={universeThemes}
+        selectedThemeId={themeId}
+        onSelectTheme={setThemeId}
       />
 
       {/* <div className="universe-caption">点击一颗星球，查看它的故事。</div> */}
@@ -196,12 +198,6 @@ function App() {
           {t('login')}
         </button>
       )}
-
-      <ThemeSwitcher
-        themes={universeThemes}
-        selectedThemeId={themeId}
-        onSelectTheme={setThemeId}
-      />
 
       {authUser ? (
         <button

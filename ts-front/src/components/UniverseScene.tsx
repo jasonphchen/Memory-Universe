@@ -1,9 +1,10 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import type { MemoryNode } from './memory.types'
-import type { UniverseTheme } from './universeThemes'
+import type { UniverseTheme, UniverseThemeId } from './universeThemes'
 import { useI18n } from '../i18n/I18nContext'
 import { LanguageSwitcher } from './LanguageSwitcher'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 type FontMode = 'standard' | 'senior'
 
@@ -18,6 +19,9 @@ type UniverseSceneProps = {
   memories: MemoryNode[]
   onSelectMemory: (memoryId: string) => void
   theme: UniverseTheme
+  themes: UniverseTheme[]
+  selectedThemeId: UniverseThemeId
+  onSelectTheme: (themeId: UniverseThemeId) => void
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -212,7 +216,14 @@ function generateDistributedTextureIndices(
   return indices
 }
 
-export function UniverseScene({ memories, onSelectMemory, theme }: UniverseSceneProps) {
+export function UniverseScene({
+  memories,
+  onSelectMemory,
+  theme,
+  themes,
+  selectedThemeId,
+  onSelectTheme,
+}: UniverseSceneProps) {
   const { t } = useI18n()
   const mountRef = useRef<HTMLDivElement | null>(null)
   const [fontMode, setFontMode] = useState<FontMode>(() => {
@@ -602,26 +613,22 @@ export function UniverseScene({ memories, onSelectMemory, theme }: UniverseScene
   return (
     <>
       <div ref={mountRef} className="universe-canvas" />
-      <div className="font-mode-switcher">
-        <div className="switch-group" role="group" aria-label={t('fontSize')}>
-          <button
-            type="button"
-            className={`font-mode-option${fontMode === 'standard' ? ' is-active' : ''}`}
-            aria-pressed={fontMode === 'standard'}
-            onClick={() => setFontMode('standard')}
-          >
-            {t('fontStandard')}
-          </button>
-          <button
-            type="button"
-            className={`font-mode-option${fontMode === 'senior' ? ' is-active' : ''}`}
-            aria-pressed={fontMode === 'senior'}
-            onClick={() => setFontMode('senior')}
-          >
-            {t('fontSenior')}
-          </button>
-        </div>
-        <span className="switch-divider" aria-hidden="true" />
+      <div className="control-dock">
+        <ThemeSwitcher
+          themes={themes}
+          selectedThemeId={selectedThemeId}
+          onSelectTheme={onSelectTheme}
+        />
+        <button
+          type="button"
+          className={`control-button${fontMode === 'senior' ? ' is-active' : ''}`}
+          aria-label={t('fontSize')}
+          aria-pressed={fontMode === 'senior'}
+          title={t('fontSize')}
+          onClick={() => setFontMode((prev) => (prev === 'senior' ? 'standard' : 'senior'))}
+        >
+          A
+        </button>
         <LanguageSwitcher />
       </div>
     </>
