@@ -133,6 +133,66 @@
   filter: brightness(1.05);
 }
 
+.user-menu {
+  z-index: 30;
+}
+
+.auth-user-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--caption-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.auth-user-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.user-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 100%;
+  padding: 6px;
+  border: 1px solid var(--switch-border);
+  border-radius: 12px;
+  background: var(--switch-bg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--switch-option-border);
+  border-radius: 10px;
+  background: var(--switch-option-bg);
+  color: var(--caption-text);
+  font-size: 0.82rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 130ms ease, border-color 130ms ease, filter 130ms ease;
+}
+
+.user-menu-item:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
 .control-dock {
   position: absolute;
   left: 18px;

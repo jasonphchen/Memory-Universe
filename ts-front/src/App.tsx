@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { MemoryPanel } from './components/MemoryPanel'
 import { SearchBox } from './components/SearchBox'
 import { UniverseScene } from './components/UniverseScene'
+import { UserMenu } from './components/UserMenu'
 import type { MemoryNode } from './components/memory.types'
 import { AuthDialog } from './components/auth/AuthDialog'
 import { AddMemoryDialog } from './components/AddMemoryDialog'
@@ -167,13 +168,14 @@ function App() {
     }
   }
 
-  // const handleLogout = () => {
-  //   setSelectedMemory(null)
-  //   setAccessToken(null)
-  //   setAuthUser(null)
-  //   localStorage.removeItem(AUTH_TOKEN_KEY)
-  //   localStorage.removeItem(AUTH_USER_KEY)
-  // }
+  const handleLogout = () => {
+    clearAuthState()
+    setSelectedMemory(null)
+    setAddMemoryDialogOpen(false)
+    setEditMemoryDialogOpen(false)
+    setMemoryToEdit(null)
+    loadMemoryList()
+  }
 
   return (
     <div className={`universe-app theme-${selectedTheme.id}`}>
@@ -191,7 +193,7 @@ function App() {
       <SearchBox memories={memories} onSelectMemory={handleSelectMemory} />
 
       {authUser ? (
-        <span className="auth-toolbar auth-user">{t('greeting', { name: authUser.username })}</span>
+        <UserMenu username={authUser.username} onLogout={handleLogout} />
       ) : (
         <button
           type="button"

@@ -9,8 +9,8 @@ import { ThemeSwitcher } from './ThemeSwitcher'
 type FontMode = 'standard' | 'senior'
 
 const FONT_MODE_STORAGE_KEY = 'memory_universe_font_mode'
-const STANDARD_ROOT_FONT_SIZE = 18
-const SENIOR_ROOT_FONT_SIZE = 21
+const STANDARD_ROOT_FONT_SIZE = 21
+const SENIOR_ROOT_FONT_SIZE = 23
 
 const starImages = import.meta.glob('../assets/stars/*.{png,jpg,jpeg,webp}', { eager: true, as: 'url' })
 const starImageUrls = Object.values(starImages) as string[]

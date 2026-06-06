@@ -18,6 +18,7 @@ const cn = {
   // App
   greeting: (p: { name: string }) => `您好, ${p.name}`,
   login: '登录',
+  logout: '退出登录',
   addMemoryAria: '新增记忆',
   memoryLoadFailed: '记忆加载失败，请稍后重试。',
   deleteFailed: '删除失败，请稍后重试。',
@@ -35,7 +36,7 @@ const cn = {
   fontSenior: '老年版',
 
   // Search
-  searchPlaceholder: '搜索标题或地点',
+  searchPlaceholder: '搜索',
   searchNoResults: '没有匹配的记忆',
 
   // MemoryPanel
@@ -151,6 +152,7 @@ const en: Translations = {
   // App
   greeting: (p) => `Hello, ${p.name}`,
   login: 'Sign in',
+  logout: 'Sign out',
   addMemoryAria: 'Add memory',
   memoryLoadFailed: 'Failed to load the memory. Please try again later.',
   deleteFailed: 'Failed to delete. Please try again later.',
@@ -168,7 +170,7 @@ const en: Translations = {
   fontSenior: 'Large',
 
   // Search
-  searchPlaceholder: 'Search title or location',
+  searchPlaceholder: 'Search',
   searchNoResults: 'No matching memories',
 
   // MemoryPanel
