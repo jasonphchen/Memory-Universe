@@ -392,7 +392,7 @@
 }
 
 .memory-dialog {
-  width: min(610px, calc(100vw - 32px));
+  width: min(710px, calc(100vw - 32px));
   margin: auto;
   padding: 0;
   border: none;
