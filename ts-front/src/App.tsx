@@ -28,7 +28,7 @@ const AUTH_USER_KEY = 'memory_universe_user'
 const LEGACY_ACCESS_TOKEN_KEY = 'memory_universe_access_token'
 
 function App() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [memories, setMemories] = useState<MemoryNode[]>([])
   const [selectedMemory, setSelectedMemory] = useState<MemoryContent | null>(null)
   const [isMemoryLoading, setIsMemoryLoading] = useState(false)
@@ -41,6 +41,12 @@ function App() {
   const [memoryToEdit, setMemoryToEdit] = useState<MemoryContent | null>(null)
   const selectedTheme =
     universeThemes.find((theme) => theme.id === themeId) ?? (universeThemes[0] as UniverseTheme)
+
+  const navigateToUserPath = (path: string) => {
+    const segment = path.replace(/^\/+|\/+$/g, '')
+    const target = segment ? `/${segment}/${lang}` : `/${lang}`
+    window.history.pushState(null, '', target)
+  }
 
   const clearAuthState = () => {
     setAccessToken(null)
@@ -97,6 +103,7 @@ function App() {
       try {
         const refreshed = await authService.refresh(savedRefreshToken)
         handleAuthSuccess(refreshed)
+        navigateToUserPath(refreshed.path)
       } catch {
         clearAuthState()
       }

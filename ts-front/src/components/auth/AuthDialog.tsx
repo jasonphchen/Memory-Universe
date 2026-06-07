@@ -76,16 +76,16 @@ export function AuthDialog({ isOpen, onClose, onAuthSuccess }: AuthDialogProps) 
     }
   }
 
-  const submitRegister = async (username: string, password: string, secret: string) => {
-    if (!username || !password || !secret) {
-      setError(t('enterUsernamePasswordSecret'))
+  const submitRegister = async (username: string, password: string) => {
+    if (!username || !password) {
+      setError(t('enterUsernamePassword'))
       return
     }
 
     try {
       setIsLoading(true)
       setError('')
-      const response = await authService.register(username, password, secret)
+      const response = await authService.register(username, password)
       navigateToUserPath(response.path)
       onAuthSuccess(response)
       onClose()

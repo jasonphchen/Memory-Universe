@@ -4,18 +4,17 @@ import { useI18n } from '../../i18n/I18nContext'
 
 type RegisterFormProps = {
   isLoading: boolean
-  onSubmit: (username: string, password: string, secret: string) => Promise<void>
+  onSubmit: (username: string, password: string) => Promise<void>
 }
 
 export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
   const { t } = useI18n()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [secret, setSecret] = useState('')
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    await onSubmit(username.trim(), password, secret)
+    await onSubmit(username.trim(), password)
   }
 
   return (
@@ -39,18 +38,6 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
-          required
-        />
-      </label>
-
-      <label className="auth-label">
-        {t('registrationCode')}
-        <input
-          className="auth-input"
-          type="password"
-          value={secret}
-          onChange={(event) => setSecret(event.target.value)}
-          autoComplete="off"
           required
         />
       </label>

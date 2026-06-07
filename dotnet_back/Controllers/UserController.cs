@@ -13,7 +13,6 @@ public class UserController : ControllerBase
 {
     private readonly IMongoCollection<User> _usersCollection;
     private readonly JwtService _jwtService;
-    private readonly string _registrationSecret;
 
     public UserController(IMongoClient mongoClient, IConfiguration configuration, JwtService jwtService)
     {
@@ -21,7 +20,6 @@ public class UserController : ControllerBase
         var database = mongoClient.GetDatabase(databaseName);
         _usersCollection = database.GetCollection<User>("Users");
         _jwtService = jwtService;
-        _registrationSecret = configuration["Secret"] ?? string.Empty;
     }
 
     [HttpGet("hello")]
@@ -34,15 +32,9 @@ public class UserController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username)
-            || string.IsNullOrWhiteSpace(request.Password)
-            || string.IsNullOrWhiteSpace(request.Secret))
+            || string.IsNullOrWhiteSpace(request.Password))
         {
-            return BadRequest(new { message = "Username, password and secret are required." });
-        }
-
-        if (!string.Equals(request.Secret, _registrationSecret, StringComparison.Ordinal))
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Invalid registration secret." });
+            return BadRequest(new { message = "Username and password are required." });
         }
 
         var normalizedUsername = request.Username.Trim();
@@ -183,7 +175,6 @@ public class UserController : ControllerBase
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public string Secret { get; set; } = string.Empty;
     }
 
     public class LoginRequest

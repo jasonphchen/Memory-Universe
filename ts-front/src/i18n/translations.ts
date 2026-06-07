@@ -116,11 +116,9 @@ const cn = {
   // Auth
   authFailed: '认证失败，请稍后重试。',
   enterUsernamePassword: '请输入用户名和密码。',
-  enterUsernamePasswordSecret: '请输入用户名、密码和注册码。',
   register: '注册',
   username: '用户名',
   password: '密码',
-  registrationCode: '注册码',
   loggingIn: '登录中...',
   registering: '注册中...',
 
@@ -250,11 +248,9 @@ const en: Translations = {
   // Auth
   authFailed: 'Authentication failed. Please try again later.',
   enterUsernamePassword: 'Please enter your username and password.',
-  enterUsernamePasswordSecret: 'Please enter your username, password and registration code.',
   register: 'Sign up',
   username: 'Username',
   password: 'Password',
-  registrationCode: 'Registration code',
   loggingIn: 'Signing in...',
   registering: 'Signing up...',
 
