@@ -56,7 +56,7 @@ public class JwtService
             new Claim("TokenType", "refresh")
         };
 
-        var expiration = user.Id == "0" ? DateTime.UtcNow.AddDays(1) : DateTime.UtcNow.AddDays(30);
+        var expiration = DateTime.UtcNow.AddDays(30);
 
         var refreshToken = new JwtSecurityToken(
             issuer: _issuer,
