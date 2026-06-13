@@ -33,7 +33,7 @@ function App() {
   const [selectedMemory, setSelectedMemory] = useState<MemoryContent | null>(null)
   const [isMemoryLoading, setIsMemoryLoading] = useState(false)
   const [memoryErrorMessage, setMemoryErrorMessage] = useState('')
-  const [themeId, setThemeId] = useState<UniverseThemeId>('galaxy')
+  const [themeId, setThemeId] = useState<UniverseThemeId>('nebula')
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [addMemoryDialogOpen, setAddMemoryDialogOpen] = useState(false)

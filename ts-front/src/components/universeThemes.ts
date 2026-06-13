@@ -18,7 +18,7 @@ export type UniverseTheme = {
   starfieldCount: number
   starfieldDistribution: 'sphere' | 'disk' | 'tube'
   memoryShape: 'sphere' | 'octahedron' | 'tetrahedron' | 'fivePointStar' | 'image'
-  memoryLayout: 'orbital' | 'spiral' | 'helix'
+  memoryLayout: 'orbital' | 'spiral' | 'helix' | 'plane'
   useImageTextures?: boolean
   memorySpinSpeed: number
   memoryTiltStrength: number
@@ -51,7 +51,7 @@ export const universeThemes: UniverseTheme[] = [
     starfieldCount: 8000,
     starfieldDistribution: 'sphere',
     memoryShape: 'fivePointStar',
-    memoryLayout: 'orbital',
+    memoryLayout: 'plane',
     memorySpinSpeed: 0.085,
     memoryTiltStrength: 0.075,
     pulseSpeed: 1.65,

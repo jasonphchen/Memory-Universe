@@ -11,6 +11,13 @@ type FontMode = 'standard' | 'senior'
 const FONT_MODE_STORAGE_KEY = 'memory_universe_font_mode'
 const STANDARD_ROOT_FONT_SIZE = 21
 const SENIOR_ROOT_FONT_SIZE = 23
+const PLANE_SPACING = 2.6
+const PLANE_SCATTER_MULTIPLIER = 2.8
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+
+function getPlaneScatterRadius(count: number): number {
+  return PLANE_SPACING * Math.sqrt(Math.max(count, 9)) * PLANE_SCATTER_MULTIPLIER
+}
 
 const starImages = import.meta.glob('../assets/stars/*.{png,jpg,jpeg,webp}', { eager: true, as: 'url' })
 const starImageUrls = Object.values(starImages) as string[]
@@ -135,6 +142,20 @@ function getMemoryPosition(
   total: number,
   spread: number,
 ): { x: number; y: number; z: number } {
+  if (theme.memoryLayout === 'plane') {
+    const scatterRadius = getPlaneScatterRadius(total)
+    const sectorAngle = (Math.PI * 2) / Math.max(total, 1)
+    const baseAngle = index * GOLDEN_ANGLE
+    const angle = baseAngle + (Math.random() - 0.5) * sectorAngle * 1.2
+    const ringProgress = (index + 0.5) / Math.max(total, 1)
+    const radius = scatterRadius * Math.sqrt(ringProgress) * (0.55 + Math.random() * 0.55)
+    return {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+      z: (Math.random() - 0.5) * 0.6,
+    }
+  }
+
   if (theme.memoryLayout === 'spiral') {
     const arm = index % 3
     const progress = (index + 0.7) / total
@@ -265,19 +286,36 @@ export function UniverseScene({
     if (!mountElement) return
 
     const memoryCount = memories.length
-    const spreadFactor = Math.min(2.6, Math.max(1, Math.sqrt(memoryCount / 20)))
+    const isPlane = theme.memoryLayout === 'plane'
+    const spreadFactor = isPlane
+      ? 1
+      : Math.min(2.6, Math.max(1, Math.sqrt(memoryCount / 20)))
+
+    const fovDeg = 68
+    const fovRad = (fovDeg * Math.PI) / 180
+    const planeScatterRadius = getPlaneScatterRadius(memoryCount)
+    const planeCameraZ = 18 + Math.sqrt(Math.max(memoryCount, 9)) * 1.4
+    const cameraZ = isPlane ? planeCameraZ : 19 * spreadFactor
+    const cameraBaseY = isPlane ? 0 : 1.3 * spreadFactor
+    const cameraDriftScale = isPlane ? 0 : spreadFactor
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(theme.sceneBackground)
-    scene.fog = new THREE.FogExp2(theme.fogColor, theme.fogDensity / spreadFactor)
+    scene.fog = new THREE.FogExp2(
+      theme.fogColor,
+      isPlane ? theme.fogDensity * 0.35 : theme.fogDensity / spreadFactor,
+    )
 
+    const cameraFar = isPlane
+      ? planeScatterRadius * 4 + 200
+      : Math.max(100, cameraZ * 2.5)
     const camera = new THREE.PerspectiveCamera(
-      68,
+      fovDeg,
       mountElement.clientWidth / mountElement.clientHeight,
       0.1,
-      100 * Math.max(1, spreadFactor),
+      cameraFar,
     )
-    camera.position.set(0, 2, 19 * spreadFactor)
+    camera.position.set(0, cameraBaseY, cameraZ)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -326,7 +364,9 @@ export function UniverseScene({
 
     const memoryMeshes: THREE.Mesh[] = []
     const sizeShrink = Math.pow(spreadFactor, 0.35)
-    const memorySize = (theme.useImageTextures ? 1.85 : 0.78) / sizeShrink
+    const planeSizeBoost = isPlane ? 1.35 : 1
+    const memorySize =
+      ((theme.useImageTextures ? 1.85 : 0.78) * planeSizeBoost) / sizeShrink
     const glowTexture = createGlowTexture()
     memories.forEach((memory, index) => {
       const geometry = createMemoryGeometry(theme, memorySize)
@@ -403,6 +443,13 @@ export function UniverseScene({
     let userRotationY = 0
     let inertiaX = 0
     let inertiaY = 0
+    let userPanX = 0
+    let userPanY = 0
+    let panInertiaX = 0
+    let panInertiaY = 0
+    const maxPan = planeScatterRadius * 1.1
+    const computeWorldPerPixel = () =>
+      (2 * cameraZ * Math.tan(fovRad / 2)) / Math.max(1, mountElement.clientHeight)
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'touch' && (event as any).touches?.length > 1) {
@@ -442,12 +489,22 @@ export function UniverseScene({
 
       if (!dragging) return
 
-      const rotateY = deltaX * 0.006 * touchSensitivity
-      const rotateX = deltaY * 0.0038 * touchSensitivity
-      userRotationY += rotateY
-      userRotationX = clamp(userRotationX + rotateX, -0.95, 0.95)
-      inertiaY = rotateY * 0.5
-      inertiaX = rotateX * 0.5
+      if (isPlane) {
+        const worldPerPixel = computeWorldPerPixel()
+        const panDX = -deltaX * worldPerPixel * touchSensitivity
+        const panDY = deltaY * worldPerPixel * touchSensitivity
+        userPanX = clamp(userPanX + panDX, -maxPan, maxPan)
+        userPanY = clamp(userPanY + panDY, -maxPan, maxPan)
+        panInertiaX = panDX * 0.5
+        panInertiaY = panDY * 0.5
+      } else {
+        const rotateY = deltaX * 0.006 * touchSensitivity
+        const rotateX = deltaY * 0.0038 * touchSensitivity
+        userRotationY += rotateY
+        userRotationX = clamp(userRotationX + rotateX, -0.95, 0.95)
+        inertiaY = rotateY * 0.5
+        inertiaX = rotateX * 0.5
+      }
       
       if (event.pointerType === 'touch') {
         event.preventDefault()
@@ -493,7 +550,18 @@ export function UniverseScene({
       event.preventDefault()
       const deltaY = event.deltaY
       const deltaX = event.deltaX
-      
+
+      if (isPlane) {
+        const worldPerPixel = computeWorldPerPixel()
+        const panDX = -deltaX * worldPerPixel * 0.6
+        const panDY = deltaY * worldPerPixel * 0.6
+        userPanX = clamp(userPanX + panDX, -maxPan, maxPan)
+        userPanY = clamp(userPanY + panDY, -maxPan, maxPan)
+        panInertiaX = panDX * 0.3
+        panInertiaY = panDY * 0.3
+        return
+      }
+
       if (Math.abs(deltaY) > Math.abs(deltaX)) {
         const rotateX = deltaY * 0.001
         userRotationX = clamp(userRotationX + rotateX, -0.95, 0.95)
@@ -550,15 +618,24 @@ export function UniverseScene({
       starfield.rotation.x = Math.sin(t * 0.08) * 0.05
 
       if (!isPointerDown) {
-        inertiaX *= 0.94
-        inertiaY *= 0.94
-        userRotationX = clamp(userRotationX + inertiaX, -0.95, 0.95)
-        userRotationY += inertiaY
+        if (isPlane) {
+          panInertiaX *= 0.92
+          panInertiaY *= 0.92
+          userPanX = clamp(userPanX + panInertiaX, -maxPan, maxPan)
+          userPanY = clamp(userPanY + panInertiaY, -maxPan, maxPan)
+        } else {
+          inertiaX *= 0.94
+          inertiaY *= 0.94
+          userRotationX = clamp(userRotationX + inertiaX, -0.95, 0.95)
+          userRotationY += inertiaY
+        }
       }
 
-      memoryGroup.rotation.y = t * theme.memorySpinSpeed + userRotationY
-      memoryGroup.rotation.x =
-        Math.sin(t * 0.2) * theme.memoryTiltStrength + userRotationX
+      if (!isPlane) {
+        memoryGroup.rotation.y = t * theme.memorySpinSpeed + userRotationY
+        memoryGroup.rotation.x =
+          Math.sin(t * 0.2) * theme.memoryTiltStrength + userRotationX
+      }
 
       memoryMeshes.forEach((mesh) => {
         const baseScale = mesh.userData.baseScale as number
@@ -571,9 +648,18 @@ export function UniverseScene({
         }
       })
 
-      camera.position.x = Math.sin(t * 0.14) * theme.cameraDriftX * spreadFactor
-      camera.position.y = 1.3 * spreadFactor + Math.sin(t * 0.22) * theme.cameraDriftY * spreadFactor
-      camera.lookAt(0, 0, 0)
+      if (isPlane) {
+        camera.position.x = userPanX
+        camera.position.y = cameraBaseY + userPanY
+        camera.position.z = cameraZ
+        camera.lookAt(userPanX, cameraBaseY + userPanY, 0)
+      } else {
+        camera.position.x = Math.sin(t * 0.14) * theme.cameraDriftX * cameraDriftScale
+        camera.position.y =
+          cameraBaseY + Math.sin(t * 0.22) * theme.cameraDriftY * cameraDriftScale
+        camera.position.z = cameraZ
+        camera.lookAt(0, 0, 0)
+      }
 
       renderer.render(scene, camera)
     }
