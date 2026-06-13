@@ -133,37 +133,38 @@ function getMemoryPosition(
   theme: UniverseTheme,
   index: number,
   total: number,
+  spread: number,
 ): { x: number; y: number; z: number } {
   if (theme.memoryLayout === 'spiral') {
     const arm = index % 3
     const progress = (index + 0.7) / total
     const armOffset = (arm / 3) * Math.PI * 2
     const angle = progress * Math.PI * 8.5 + armOffset + Math.random() * 0.4
-    const radius = 3 + progress * 10 + Math.random() * 0.9
+    const radius = (3 + progress * 10 + Math.random() * 0.9) * spread
     return {
       x: Math.cos(angle) * radius,
-      y: (Math.random() - 0.5) * 2.4,
+      y: (Math.random() - 0.5) * 2.4 * spread,
       z: Math.sin(angle) * radius,
     }
   }
 
   if (theme.memoryLayout === 'helix') {
     const progress = index / total
-    const turns = 4
+    const turns = 4 + Math.floor(Math.max(0, spread - 1) * 3)
     const angle = progress * Math.PI * 2 * turns + Math.random() * 0.22
-    const radius = 6 + Math.sin(progress * Math.PI * 4) * 1.6 + Math.random() * 0.5
+    const radius = (6 + Math.sin(progress * Math.PI * 4) * 1.6 + Math.random() * 0.5) * spread
     return {
       x: Math.cos(angle) * radius,
-      y: (progress - 0.5) * 9.2,
+      y: (progress - 0.5) * 9.2 * spread,
       z: Math.sin(angle) * radius,
     }
   }
 
-  const orbitRadius = 6 + Math.random() * 7.5
+  const orbitRadius = (6 + Math.random() * 7.5) * spread
   const angle = (index / total) * Math.PI * 2 + Math.random() * 0.34
   return {
     x: Math.cos(angle) * orbitRadius,
-    y: (Math.random() - 0.5) * 4.6,
+    y: (Math.random() - 0.5) * 4.6 * spread,
     z: Math.sin(angle) * orbitRadius,
   }
 }
@@ -263,17 +264,20 @@ export function UniverseScene({
     const mountElement = mountRef.current
     if (!mountElement) return
 
+    const memoryCount = memories.length
+    const spreadFactor = Math.min(2.6, Math.max(1, Math.sqrt(memoryCount / 20)))
+
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(theme.sceneBackground)
-    scene.fog = new THREE.FogExp2(theme.fogColor, theme.fogDensity)
+    scene.fog = new THREE.FogExp2(theme.fogColor, theme.fogDensity / spreadFactor)
 
     const camera = new THREE.PerspectiveCamera(
       68,
       mountElement.clientWidth / mountElement.clientHeight,
       0.1,
-      100,
+      100 * Math.max(1, spreadFactor),
     )
-    camera.position.set(0, 2, 19)
+    camera.position.set(0, 2, 19 * spreadFactor)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -321,7 +325,8 @@ export function UniverseScene({
     scene.add(memoryGroup)
 
     const memoryMeshes: THREE.Mesh[] = []
-    const memorySize = theme.useImageTextures ? 1.85 : 0.78
+    const sizeShrink = Math.pow(spreadFactor, 0.35)
+    const memorySize = (theme.useImageTextures ? 1.85 : 0.78) / sizeShrink
     const glowTexture = createGlowTexture()
     memories.forEach((memory, index) => {
       const geometry = createMemoryGeometry(theme, memorySize)
@@ -363,7 +368,7 @@ export function UniverseScene({
       if (theme.memoryShape === 'fivePointStar') {
         star.rotation.z = Math.random() * Math.PI * 2
       }
-      const position = getMemoryPosition(theme, index, memories.length)
+      const position = getMemoryPosition(theme, index, memories.length, spreadFactor)
       star.position.set(position.x, position.y, position.z)
       star.userData = {
         memoryId: memory.id,
@@ -566,8 +571,8 @@ export function UniverseScene({
         }
       })
 
-      camera.position.x = Math.sin(t * 0.14) * theme.cameraDriftX
-      camera.position.y = 1.3 + Math.sin(t * 0.22) * theme.cameraDriftY
+      camera.position.x = Math.sin(t * 0.14) * theme.cameraDriftX * spreadFactor
+      camera.position.y = 1.3 * spreadFactor + Math.sin(t * 0.22) * theme.cameraDriftY * spreadFactor
       camera.lookAt(0, 0, 0)
 
       renderer.render(scene, camera)
