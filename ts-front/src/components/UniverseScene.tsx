@@ -321,6 +321,7 @@ export function UniverseScene({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(mountElement.clientWidth, mountElement.clientHeight)
     renderer.domElement.style.cursor = 'grab'
+    renderer.domElement.style.touchAction = 'none'
     mountElement.appendChild(renderer.domElement)
 
     const ambientLight = new THREE.AmbientLight(
@@ -448,12 +449,52 @@ export function UniverseScene({
     let panInertiaX = 0
     let panInertiaY = 0
     const maxPan = planeScatterRadius * 1.1
+
+    // Zoom is only used by the Stars (plane) scheme. A larger zoom moves the
+    // camera closer to the memory plane; the effective distance is cameraZ / zoom.
+    const minZoom = 0.4
+    const maxZoom = 4
+    let userZoom = 1
+    const planeCameraDistance = () => cameraZ / userZoom
     const computeWorldPerPixel = () =>
-      (2 * cameraZ * Math.tan(fovRad / 2)) / Math.max(1, mountElement.clientHeight)
+      (2 * planeCameraDistance() * Math.tan(fovRad / 2)) /
+      Math.max(1, mountElement.clientHeight)
+
+    // Zoom toward a screen point so the world position under that point stays put.
+    const applyZoomAtPoint = (nextZoom: number, clientX: number, clientY: number) => {
+      const clampedZoom = clamp(nextZoom, minZoom, maxZoom)
+      if (clampedZoom === userZoom) return
+      const rect = renderer.domElement.getBoundingClientRect()
+      const offsetX = clientX - rect.left - rect.width / 2
+      const offsetY = clientY - rect.top - rect.height / 2
+      const wppBefore = computeWorldPerPixel()
+      const worldX = userPanX + offsetX * wppBefore
+      const worldY = cameraBaseY + userPanY - offsetY * wppBefore
+      userZoom = clampedZoom
+      const wppAfter = computeWorldPerPixel()
+      userPanX = clamp(worldX - offsetX * wppAfter, -maxPan, maxPan)
+      userPanY = clamp(worldY + offsetY * wppAfter - cameraBaseY, -maxPan, maxPan)
+    }
+
+    // Two-finger pinch tracking (touch only).
+    const activePointers = new Map<number, { x: number; y: number }>()
+    let isPinching = false
+    let pinchPrevDistance = 0
 
     const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType === 'touch' && (event as any).touches?.length > 1) {
-        return
+      if (event.pointerType === 'touch') {
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+        if (activePointers.size >= 2) {
+          // Second finger down: switch from drag to pinch-zoom.
+          isPinching = true
+          isPointerDown = false
+          dragging = false
+          renderer.domElement.style.cursor = 'grab'
+          const pts = [...activePointers.values()]
+          pinchPrevDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+          event.preventDefault()
+          return
+        }
       }
       isPointerDown = true
       dragStart.set(event.clientX, event.clientY)
@@ -467,11 +508,24 @@ export function UniverseScene({
     }
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!isPointerDown) return
-      
-      if (event.pointerType === 'touch' && (event as any).touches?.length > 1) {
+      if (event.pointerType === 'touch' && activePointers.has(event.pointerId)) {
+        activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      }
+
+      if (isPinching && activePointers.size >= 2) {
+        const pts = [...activePointers.values()]
+        const distance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+        if (isPlane && pinchPrevDistance > 0) {
+          const midX = (pts[0].x + pts[1].x) / 2
+          const midY = (pts[0].y + pts[1].y) / 2
+          applyZoomAtPoint(userZoom * (distance / pinchPrevDistance), midX, midY)
+        }
+        pinchPrevDistance = distance
+        event.preventDefault()
         return
       }
+
+      if (!isPointerDown) return
 
       const deltaX = event.clientX - lastPointer.x
       const deltaY = event.clientY - lastPointer.y
@@ -517,12 +571,25 @@ export function UniverseScene({
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
         renderer.domElement.releasePointerCapture(event.pointerId)
       }
-      
+
+      let wasPinching = false
       if (event.pointerType === 'touch') {
+        activePointers.delete(event.pointerId)
+        if (isPinching) {
+          wasPinching = true
+          // Stay suppressed until every finger lifts so a leftover finger
+          // doesn't snap into a drag or register as a tap.
+          if (activePointers.size > 0) {
+            event.preventDefault()
+            return
+          }
+          isPinching = false
+          pinchPrevDistance = 0
+        }
         event.preventDefault()
       }
-      
-      if (dragging) return
+
+      if (dragging || wasPinching) return
 
       const rect = renderer.domElement.getBoundingClientRect()
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
@@ -544,6 +611,13 @@ export function UniverseScene({
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
         renderer.domElement.releasePointerCapture(event.pointerId)
       }
+      if (event.pointerType === 'touch') {
+        activePointers.delete(event.pointerId)
+        if (activePointers.size < 2) {
+          isPinching = false
+          pinchPrevDistance = 0
+        }
+      }
     }
 
     const onWheel = (event: WheelEvent) => {
@@ -552,13 +626,10 @@ export function UniverseScene({
       const deltaX = event.deltaX
 
       if (isPlane) {
-        const worldPerPixel = computeWorldPerPixel()
-        const panDX = -deltaX * worldPerPixel * 0.6
-        const panDY = deltaY * worldPerPixel * 0.6
-        userPanX = clamp(userPanX + panDX, -maxPan, maxPan)
-        userPanY = clamp(userPanY + panDY, -maxPan, maxPan)
-        panInertiaX = panDX * 0.3
-        panInertiaY = panDY * 0.3
+        // Wheel (and trackpad pinch, which arrives as a ctrl+wheel) zooms
+        // toward the cursor. Scroll up / spread = zoom in.
+        const zoomFactor = Math.exp(-deltaY * 0.0015)
+        applyZoomAtPoint(userZoom * zoomFactor, event.clientX, event.clientY)
         return
       }
 
@@ -574,15 +645,12 @@ export function UniverseScene({
     }
 
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        e.preventDefault()
-      }
+      // Prevent native scroll/zoom for both single-finger drag and pinch.
+      e.preventDefault()
     }
-    
+
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        e.preventDefault()
-      }
+      e.preventDefault()
     }
     
     const onTouchEnd = (e: TouchEvent) => {
@@ -651,7 +719,7 @@ export function UniverseScene({
       if (isPlane) {
         camera.position.x = userPanX
         camera.position.y = cameraBaseY + userPanY
-        camera.position.z = cameraZ
+        camera.position.z = planeCameraDistance()
         camera.lookAt(userPanX, cameraBaseY + userPanY, 0)
       } else {
         camera.position.x = Math.sin(t * 0.14) * theme.cameraDriftX * cameraDriftScale
