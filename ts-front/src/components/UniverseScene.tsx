@@ -266,12 +266,45 @@ export function UniverseScene({
   
   const starTextures = useMemo(() => {
     if (!theme.useImageTextures || starImageUrls.length === 0) return []
-    const loader = new THREE.TextureLoader()
     return starImageUrls.map((imageUrl: string) => {
-      const texture = loader.load(imageUrl)
+      const canvas = document.createElement('canvas')
+      canvas.width = 256
+      canvas.height = 256
+      const texture = new THREE.CanvasTexture(canvas)
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
       texture.flipY = false
+      const image = new Image()
+      image.onload = () => {
+        const context = canvas.getContext('2d')
+        if (!context) return
+        const size = canvas.width
+        const inset = size * 0.05
+        context.clearRect(0, 0, size, size)
+        // Slight blur gives the artwork a frosted-glass softness, and the
+        // radial mask feathers the edges so it blends into the background.
+        context.filter = 'blur(1.2px)'
+        context.drawImage(image, inset, inset, size - inset * 2, size - inset * 2)
+        context.filter = 'none'
+        context.globalCompositeOperation = 'destination-in'
+        const mask = context.createRadialGradient(
+          size / 2,
+          size / 2,
+          0,
+          size / 2,
+          size / 2,
+          size / 2,
+        )
+        mask.addColorStop(0, 'rgba(255,255,255,1)')
+        mask.addColorStop(0.6, 'rgba(255,255,255,0.95)')
+        mask.addColorStop(0.85, 'rgba(255,255,255,0.4)')
+        mask.addColorStop(1, 'rgba(255,255,255,0)')
+        context.fillStyle = mask
+        context.fillRect(0, 0, size, size)
+        context.globalCompositeOperation = 'source-over'
+        texture.needsUpdate = true
+      }
+      image.src = imageUrl
       return texture
     })
   }, [theme.useImageTextures])
@@ -385,7 +418,8 @@ export function UniverseScene({
           metalness: 0.1,
           roughness: 0.4,
           transparent: true,
-          alphaTest: 0.1,
+          alphaTest: 0.02,
+          depthWrite: false,
           side: THREE.DoubleSide,
         })
         glowColor = new THREE.Color(0xffe2a8)
@@ -398,10 +432,25 @@ export function UniverseScene({
         material = new THREE.MeshStandardMaterial({
           color,
           emissive: color.clone().multiplyScalar(0.65),
-          emissiveIntensity: theme.memoryShape === 'sphere' ? 1.05 : 1.26,
+          emissiveIntensity: theme.memoryShape === 'sphere' ? 1.35 : 1.26,
           metalness: 0.2,
           roughness: theme.memoryShape === 'sphere' ? 0.3 : 0.18,
         })
+        if (theme.memoryShape === 'sphere') {
+          // Fade the sphere out toward its silhouette so it reads as a
+          // glowing orb instead of a flat disc.
+          material.transparent = true
+          material.depthWrite = false
+          material.onBeforeCompile = (shader) => {
+            shader.fragmentShader = shader.fragmentShader.replace(
+              'vec4 diffuseColor = vec4( diffuse, opacity );',
+              [
+                'float edgeFacing = abs(dot(normalize(vNormal), normalize(vViewPosition)));',
+                'vec4 diffuseColor = vec4( diffuse, opacity * smoothstep(0.05, 0.72, edgeFacing) );',
+              ].join('\n'),
+            )
+          }
+        }
         glowColor = color.clone().lerp(new THREE.Color(0xffffff), 0.35)
       }
 
@@ -426,7 +475,7 @@ export function UniverseScene({
         depthTest: false,
       })
       const glow = new THREE.Sprite(glowMaterial)
-      glow.scale.setScalar(memorySize * 4)
+      glow.scale.setScalar(memorySize * (theme.memoryShape === 'sphere' ? 6 : 4))
       glow.renderOrder = -1
       star.add(glow)
 
@@ -678,7 +727,7 @@ export function UniverseScene({
       const t = clock.getElapsedTime()
       const starfieldSpeed =
         theme.starfieldDistribution === 'disk'
-          ? 0.024
+          ? 0.012
           : theme.starfieldDistribution === 'tube'
             ? 0.017
             : 0.012

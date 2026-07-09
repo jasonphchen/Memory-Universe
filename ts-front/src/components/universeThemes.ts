@@ -82,7 +82,7 @@ export const universeThemes: UniverseTheme[] = [
     starfieldDistribution: 'disk',
     memoryShape: 'sphere',
     memoryLayout: 'spiral',
-    memorySpinSpeed: 0.14,
+    memorySpinSpeed: 0.045,
     memoryTiltStrength: 0.04,
     pulseSpeed: 2.1,
     pulseAmount: 0.18,

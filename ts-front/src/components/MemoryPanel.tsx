@@ -10,6 +10,77 @@ const ELEVENLABS_VOICE_ID = 'YdgyLJpK2cRMqNNfmRoK'
 const ELEVENLABS_OUTPUT_FORMAT = 'mp3_44100_128'
 const ELEVENLABS_MODEL_ID = 'eleven_multilingual_v2'
 
+type IconProps = { size?: number }
+
+function CalendarIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function PinIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+function GlobeIcon({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+}
+
+function PencilIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </svg>
+  )
+}
+
+function TrashIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ size = 20, direction = 'right' }: IconProps & { direction?: 'left' | 'right' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={direction === 'left' ? { transform: 'scaleX(-1)' } : undefined}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  )
+}
+
+function NavArrowIcon({ size = 13 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 11l19-9-9 19-2-8-8-2z" />
+    </svg>
+  )
+}
+
+function formatCoordinates(gps: GpsCoordinate): string {
+  const latLabel = `${Math.abs(gps.lat).toFixed(2)}°${gps.lat >= 0 ? 'N' : 'S'}`
+  const lonLabel = `${Math.abs(gps.lon).toFixed(2)}°${gps.lon >= 0 ? 'E' : 'W'}`
+  return `${latLabel} ${lonLabel}`
+}
+
 type MemoryPanelProps = {
   selectedMemory: MemoryContent | null
   isLoading?: boolean
@@ -44,6 +115,7 @@ export function MemoryPanel({
   const [translatedContent, setTranslatedContent] = useState<string | null>(null)
   const [isTranslating, setIsTranslating] = useState(false)
   const [translationError, setTranslationError] = useState<string>('')
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0)
 
   const clampScale = (value: number) => Math.min(4, Math.max(1, value))
 
@@ -104,6 +176,7 @@ export function MemoryPanel({
     setTranslatedContent(null)
     setTranslationError('')
     setIsTranslating(false)
+    setActivePhotoIndex(0)
   }, [selectedMemory?.id])
 
   useEffect(() => {
@@ -279,19 +352,26 @@ export function MemoryPanel({
         return `${year}/${month}/${day}`
       })()
     : ''
-  const memoryMeta = [memoryTime, selectedMemory?.location].filter(Boolean).join(' - ')
-  const hasPhotos = (selectedMemory?.photos.length ?? 0) > 0
+  const memoryLocation = selectedMemory?.location?.trim() ?? ''
+  const photos = selectedMemory?.photos ?? []
+  const hasPhotos = photos.length > 0
   const hasAudios = (selectedMemory?.audios.length ?? 0) > 0
+  const safePhotoIndex = hasPhotos ? Math.min(activePhotoIndex, photos.length - 1) : 0
+  const activePhoto = hasPhotos ? photos[safePhotoIndex] : null
+
+  const showPrevPhoto = () =>
+    setActivePhotoIndex((safePhotoIndex - 1 + photos.length) % photos.length)
+  const showNextPhoto = () => setActivePhotoIndex((safePhotoIndex + 1) % photos.length)
 
   return (
     <dialog
       ref={dialogRef}
-      className="memory-dialog"
+      className={`memory-dialog${hasPhotos ? ' has-photos' : ''}`}
       onClose={handleDialogClose}
       onClick={handleDialogClick}
     >
       {(selectedMemory || isLoading || errorMessage) && (
-        <div className="memory-dialog-content">
+        <div className="memory-dialog-content memory-detail">
           <button
             type="button"
             className="memory-dialog-close"
@@ -306,114 +386,202 @@ export function MemoryPanel({
             <p className="memory-error">{errorMessage}</p>
           ) : selectedMemory ? (
             <>
-              <h2>{selectedMemory.title}</h2>
-              {memoryMeta ? <p className="memory-meta">{memoryMeta}</p> : null}
-              <div className="memory-content-block">
-                <p className="memory-content-text">{selectedMemory.content}</p>
-                {selectedMemory.content?.trim() && elevenLabsApiKey ? (
-                  <button
-                    type="button"
-                    className="text-assistant-icon-button memory-tts-button"
-                    onClick={handleSpeakContent}
-                    aria-label={isSpeaking ? t('stopReading') : t('readContent')}
-                    title={isSpeaking ? t('stopReading') : t('readContent')}
-                  >
-                    {isSpeaking ? '⏸' : '🔊'}
-                  </button>
-                ) : null}
-              </div>
-
-              {selectedMemory.content?.trim() ? (
-                <div className="memory-translation-block">
-                  <button
-                    type="button"
-                    className="text-assistant-button memory-translate-button"
-                    onClick={handleTranslateContent}
-                    disabled={isTranslating}
-                    aria-label={
-                      isTranslating
-                        ? t('translating')
-                        : translatedContent
-                          ? t('hideTranslation')
-                          : t('translateToEnglish')
-                    }
-                  >
-                    {isTranslating
-                      ? t('translating')
-                      : translatedContent
-                        ? t('hideTranslation')
-                        : t('translateToEnglish')}
-                  </button>
-                  {translationError ? (
-                    <p className="memory-error memory-translation-error">{translationError}</p>
+              <header className="memory-detail-header">
+                <div className="memory-detail-heading">
+                  <h2>{selectedMemory.title}</h2>
+                  {memoryTime || memoryLocation ? (
+                    <p className="memory-meta">
+                      {memoryTime ? (
+                        <span className="memory-meta-item">
+                          <CalendarIcon />
+                          {memoryTime}
+                        </span>
+                      ) : null}
+                      {memoryTime && memoryLocation ? (
+                        <span className="memory-meta-sep">·</span>
+                      ) : null}
+                      {memoryLocation ? (
+                        <span className="memory-meta-item">
+                          <PinIcon />
+                          {memoryLocation}
+                        </span>
+                      ) : null}
+                    </p>
                   ) : null}
-                  {translatedContent ? (
-                    <div className="memory-translation-result">
-                      <p className="memory-translation-label">{t('englishTranslationBy')}</p>
-                      <p className="memory-translation-text">{translatedContent}</p>
+                </div>
+                {canManage ? (
+                  <div className="memory-detail-actions">
+                    <button
+                      type="button"
+                      className="memory-header-button"
+                      onClick={() => selectedMemory && onEdit?.(selectedMemory)}
+                      aria-label={t('editMemoryAria')}
+                    >
+                      <PencilIcon />
+                      {t('edit')}
+                    </button>
+                    <button
+                      type="button"
+                      className="memory-header-button memory-header-button-danger"
+                      onClick={() => setIsDeleteConfirmOpen(true)}
+                      aria-label={t('deleteMemoryAria')}
+                    >
+                      <TrashIcon />
+                      {t('delete')}
+                    </button>
+                  </div>
+                ) : null}
+              </header>
+
+              <div className={`memory-detail-body${hasPhotos ? ' has-photos' : ''}`}>
+                <div className="memory-detail-main">
+                  {selectedMemory.content?.trim() ? (
+                    <div className="memory-translation-block">
+                      <button
+                        type="button"
+                        className="memory-translate-link"
+                        onClick={handleTranslateContent}
+                        disabled={isTranslating}
+                        aria-label={
+                          isTranslating
+                            ? t('translating')
+                            : translatedContent
+                              ? t('hideTranslation')
+                              : t('translateToEnglish')
+                        }
+                      >
+                        <GlobeIcon />
+                        {isTranslating
+                          ? t('translating')
+                          : translatedContent
+                            ? t('hideTranslation')
+                            : t('translateToEnglish')}
+                      </button>
+                      {translationError ? (
+                        <p className="memory-error memory-translation-error">{translationError}</p>
+                      ) : null}
+                      {translatedContent ? (
+                        <div className="memory-translation-result">
+                          <p className="memory-translation-label">{t('englishTranslationBy')}</p>
+                          <p className="memory-translation-text">{translatedContent}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="memory-content-block">
+                    <p className="memory-content-text">{selectedMemory.content}</p>
+                    {selectedMemory.content?.trim() && elevenLabsApiKey ? (
+                      <button
+                        type="button"
+                        className="text-assistant-icon-button memory-tts-button"
+                        onClick={handleSpeakContent}
+                        aria-label={isSpeaking ? t('stopReading') : t('readContent')}
+                        title={isSpeaking ? t('stopReading') : t('readContent')}
+                      >
+                        {isSpeaking ? '⏸' : '🔊'}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {hasAudios ? (
+                    <div className="memory-media-block">
+                      <div className="memory-audio-list">
+                        {selectedMemory.audios.map((audio) => (
+                          <audio key={audio.id} controls src={audio.url} className="memory-audio">
+                            {t('audioNotSupported')}
+                          </audio>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {mapCoordinates ? (
+                    <div className="memory-location-section">
+                      <p className="memory-location-label">{t('locationLabel')}</p>
+                      <div className="memory-location-card">
+                        <LocationMap
+                          latitude={mapCoordinates.lat}
+                          longitude={mapCoordinates.lon}
+                          height={180}
+                        />
+                        <div className="memory-location-footer">
+                          {memoryLocation ? (
+                            <span className="memory-meta-item">
+                              <PinIcon />
+                              {memoryLocation}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          <span className="memory-meta-item memory-location-coords">
+                            <NavArrowIcon />
+                            {formatCoordinates(mapCoordinates)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
-              ) : null}
 
-              {hasPhotos ? (
-                <div className="memory-media-block">
-                  {/* <h3>图片</h3> */}
-                  <div className="memory-photo-list">
-                    {selectedMemory.photos.map((photo) => (
+                {hasPhotos && activePhoto ? (
+                  <div className="memory-detail-gallery">
+                    <div className="memory-gallery-stage">
                       <button
-                        key={photo.id}
                         type="button"
-                        className="memory-photo-button"
-                        onClick={() => openPhotoPreview(photo.url)}
+                        className="memory-gallery-photo-button"
+                        onClick={() => openPhotoPreview(activePhoto.url)}
                         aria-label={t('viewLargeImage')}
                       >
-                        <img src={photo.url} alt={selectedMemory.title} className="memory-photo" />
+                        <img
+                          src={activePhoto.url}
+                          alt={selectedMemory.title}
+                          className="memory-gallery-photo"
+                        />
                       </button>
-                    ))}
+                      {photos.length > 1 ? (
+                        <>
+                          <button
+                            type="button"
+                            className="memory-gallery-nav memory-gallery-nav-prev"
+                            onClick={showPrevPhoto}
+                            aria-label={t('prevPhoto')}
+                          >
+                            <ChevronIcon direction="left" />
+                          </button>
+                          <button
+                            type="button"
+                            className="memory-gallery-nav memory-gallery-nav-next"
+                            onClick={showNextPhoto}
+                            aria-label={t('nextPhoto')}
+                          >
+                            <ChevronIcon />
+                          </button>
+                          <span className="memory-gallery-count">
+                            {safePhotoIndex + 1} / {photos.length}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                    {photos.length > 1 ? (
+                      <div className="memory-gallery-thumbs">
+                        {photos.map((photo, index) => (
+                          <button
+                            key={photo.id}
+                            type="button"
+                            className={`memory-gallery-thumb${index === safePhotoIndex ? ' is-active' : ''}`}
+                            onClick={() => setActivePhotoIndex(index)}
+                            aria-label={`${t('viewLargeImage')} ${index + 1}`}
+                            aria-current={index === safePhotoIndex}
+                          >
+                            <img src={photo.url} alt="" />
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              ) : null}
-
-              {hasAudios ? (
-                <div className="memory-media-block">
-                  {/* <h3>音频</h3> */}
-                  <div className="memory-audio-list">
-                    {selectedMemory.audios.map((audio) => (
-                      <audio key={audio.id} controls src={audio.url} className="memory-audio">
-                        {t('audioNotSupported')}
-                      </audio>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {mapCoordinates ? (
-                <div className="memory-media-block">
-                  <LocationMap latitude={mapCoordinates.lat} longitude={mapCoordinates.lon} />
-                </div>
-              ) : null}
-
-              {canManage ? (
-                <div className="memory-actions">
-                  <button
-                    type="button"
-                    className="auth-toolbar-button"
-                    onClick={() => selectedMemory && onEdit?.(selectedMemory)}
-                    aria-label={t('editMemoryAria')}
-                  >
-                    {t('edit')}
-                  </button>
-                  <button
-                    type="button"
-                    className="auth-toolbar-button memory-action-danger"
-                    onClick={() => setIsDeleteConfirmOpen(true)}
-                    aria-label={t('deleteMemoryAria')}
-                  >
-                    {t('delete')}
-                  </button>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </>
           ) : null}
         </div>

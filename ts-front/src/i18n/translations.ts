@@ -60,6 +60,9 @@ const cn = {
   translating: '翻译中...',
   englishTranslationBy: '由 OpenAI 翻译',
   translationFailed: '翻译失败，请稍后重试。',
+  locationLabel: '位置',
+  prevPhoto: '上一张',
+  nextPhoto: '下一张',
 
   // Add / Edit memory dialogs
   addMemory: '新增记忆',
@@ -192,6 +195,9 @@ const en: Translations = {
   translating: 'Translating...',
   englishTranslationBy: 'English translation by OpenAI',
   translationFailed: 'Translation failed. Please try again later.',
+  locationLabel: 'Location',
+  prevPhoto: 'Previous photo',
+  nextPhoto: 'Next photo',
 
   // Add / Edit memory dialogs
   addMemory: 'Add Memory',
